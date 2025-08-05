@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/syahidfrd/go-boilerplate/domain"
-	"github.com/syahidfrd/go-boilerplate/repository/redis"
-	"github.com/syahidfrd/go-boilerplate/transport/request"
-	"github.com/syahidfrd/go-boilerplate/utils"
+	"prakarsa-app/domain"
+	"prakarsa-app/repository/redis"
+	"prakarsa-app/transport/request"
+	"prakarsa-app/utils"
 )
 
 type todoUsecase struct {

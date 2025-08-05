@@ -1,5 +1,4 @@
-module github.com/syahidfrd/go-boilerplate
-
+module prakarsa-app
 go 1.24
 
 require (

@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/syahidfrd/go-boilerplate/domain"
-	"github.com/syahidfrd/go-boilerplate/transport/request"
-	"github.com/syahidfrd/go-boilerplate/utils"
-	"github.com/syahidfrd/go-boilerplate/utils/crypto"
-	"github.com/syahidfrd/go-boilerplate/utils/jwt"
+	"prakarsa-app/domain"
+	"prakarsa-app/transport/request"
+	"prakarsa-app/utils"
+	"prakarsa-app/utils/crypto"
+	"prakarsa-app/utils/jwt"
 )
 
 type authUsecase struct {

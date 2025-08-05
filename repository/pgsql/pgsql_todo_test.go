@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/syahidfrd/go-boilerplate/domain"
-	"github.com/syahidfrd/go-boilerplate/repository/pgsql"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"prakarsa-app/domain"
+	"prakarsa-app/repository/pgsql"
 )
 
 func TestTodoRepo_Create(t *testing.T) {

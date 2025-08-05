@@ -6,10 +6,10 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/labstack/echo/v4"
-	"github.com/syahidfrd/go-boilerplate/delivery/middleware"
-	"github.com/syahidfrd/go-boilerplate/domain"
-	"github.com/syahidfrd/go-boilerplate/transport/request"
-	"github.com/syahidfrd/go-boilerplate/utils"
+	"prakarsa-app/delivery/middleware"
+	"prakarsa-app/domain"
+	"prakarsa-app/transport/request"
+	"prakarsa-app/utils"
 )
 
 type TodoHandler struct {

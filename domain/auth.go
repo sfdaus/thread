@@ -3,7 +3,7 @@ package domain
 import (
 	"context"
 
-	"github.com/syahidfrd/go-boilerplate/transport/request"
+	"prakarsa-app/transport/request"
 )
 
 // AuthUsecase represent the auth usecase contract

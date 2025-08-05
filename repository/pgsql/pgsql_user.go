@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/syahidfrd/go-boilerplate/domain"
+	"prakarsa-app/domain"
 )
 
 type pgsqlUserRepository struct {

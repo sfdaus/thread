@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	httpDelivery "github.com/syahidfrd/go-boilerplate/delivery/http"
-	"github.com/syahidfrd/go-boilerplate/domain"
-	"github.com/syahidfrd/go-boilerplate/mocks"
-	"github.com/syahidfrd/go-boilerplate/transport/request"
-	"github.com/syahidfrd/go-boilerplate/utils"
+	httpDelivery "prakarsa-app/delivery/http"
+	"prakarsa-app/domain"
+	"prakarsa-app/mocks"
+	"prakarsa-app/transport/request"
+	"prakarsa-app/utils"
 )
 
 func TestTodoHandler_Create(t *testing.T) {

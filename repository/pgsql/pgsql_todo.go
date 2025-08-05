@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/syahidfrd/go-boilerplate/domain"
+	"prakarsa-app/domain"
 )
 
 type pgsqlTodoRepository struct {

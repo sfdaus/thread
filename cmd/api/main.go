@@ -5,24 +5,21 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"prakarsa-app/config"
+	"prakarsa-app/infrastructure/datastore"
+	"prakarsa-app/usecase"
+	"prakarsa-app/utils"
+	"prakarsa-app/utils/crypto"
+	"prakarsa-app/utils/jwt"
 	"time"
-
-	"github.com/syahidfrd/go-boilerplate/utils/crypto"
-	"github.com/syahidfrd/go-boilerplate/utils/jwt"
-
-	_ "github.com/syahidfrd/go-boilerplate/docs"
-	"github.com/syahidfrd/go-boilerplate/utils"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	echoSwagger "github.com/swaggo/echo-swagger"
-	"github.com/syahidfrd/go-boilerplate/config"
-	httpDelivery "github.com/syahidfrd/go-boilerplate/delivery/http"
-	appMiddleware "github.com/syahidfrd/go-boilerplate/delivery/middleware"
-	"github.com/syahidfrd/go-boilerplate/infrastructure/datastore"
-	pgsqlRepository "github.com/syahidfrd/go-boilerplate/repository/pgsql"
-	redisRepository "github.com/syahidfrd/go-boilerplate/repository/redis"
-	"github.com/syahidfrd/go-boilerplate/usecase"
+	httpDelivery "prakarsa-app/delivery/http"
+	appMiddleware "prakarsa-app/delivery/middleware"
+	pgsqlRepository "prakarsa-app/repository/pgsql"
+	redisRepository "prakarsa-app/repository/redis"
 )
 
 // @title Go Boilerplate
@@ -45,6 +42,7 @@ func main() {
 	// Setup repository
 	redisRepo := redisRepository.NewRedisRepository(cacheInstance)
 	todoRepo := pgsqlRepository.NewPgsqlTodoRepository(dbInstance)
+	threadRepo := pgsqlRepository.NewPgsqlThreadRepository(dbInstance)
 	userRepo := pgsqlRepository.NewPgsqlUserRepository(dbInstance)
 
 	// Setup Service
@@ -54,6 +52,7 @@ func main() {
 	// Setup usecase
 	ctxTimeout := time.Duration(configApp.ContextTimeout) * time.Second
 	todoUC := usecase.NewTodoUsecase(todoRepo, redisRepo, ctxTimeout)
+	threadUC := usecase.NewThreadUsecase(threadRepo, redisRepo, ctxTimeout)
 	authUC := usecase.NewAuthUsecase(userRepo, cryptoSvc, jwtSvc, ctxTimeout)
 
 	// Setup app middleware
@@ -71,6 +70,7 @@ func main() {
 	})
 
 	httpDelivery.NewTodoHandler(e, appMiddleware, todoUC)
+	httpDelivery.NewThreadHandler(e, appMiddleware, threadUC)
 	httpDelivery.NewAuthHandler(e, appMiddleware, authUC)
 
 	// Start server

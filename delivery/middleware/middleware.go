@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"github.com/syahidfrd/go-boilerplate/utils/jwt"
+	"prakarsa-app/utils/jwt"
 )
 
 // Middleware ...
