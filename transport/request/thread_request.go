@@ -1,14 +1,15 @@
 package request
 
 import (
-	validation "github.com/go-ozzo/ozzo-validation"
 	"mime/multipart"
+
+	validation "github.com/go-ozzo/ozzo-validation"
 )
 
 // CreateThreadReq represent create todo request body
 type CreateThreadReq struct {
 	Title        string                  `form:"title"`
-	Type         string                  `form:"type"`
+	Type         []string                `form:"type"`
 	Description  string                  `form:"description"`
 	Status       string                  `form:"status"`
 	Deadline     string                  `form:"deadline"`

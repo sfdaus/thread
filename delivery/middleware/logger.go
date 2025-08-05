@@ -89,7 +89,7 @@ func (m *Middleware) Logger(filter func(c echo.Context) bool) echo.MiddlewareFun
 				Method:   c.Request().Method,
 				Host:     c.Request().Host,
 				Path:     c.Request().RequestURI,
-				Body:     formatReqBody(buf),
+				// Body:     formatReqBody(buf),
 			}
 
 			defer func() {
