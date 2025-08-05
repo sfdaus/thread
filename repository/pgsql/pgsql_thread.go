@@ -19,6 +19,6 @@ func NewPgsqlThreadRepository(db *sql.DB) *pgsqlThreadRepository {
 
 func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *domain.Thread) (err error) {
 	query := "INSERT INTO threads (name, created_at, updated_at) VALUES ($1, $2, $3)"
-	_, err = r.db.ExecContext(ctx, query, thread.Name, thread.CreatedAt, thread.UpdatedAt)
+	_, err = r.db.ExecContext(ctx, query, thread.Title, thread.CreatedAt, thread.UpdatedAt)
 	return
 }

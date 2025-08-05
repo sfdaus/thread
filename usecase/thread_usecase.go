@@ -29,7 +29,8 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	defer cancel()
 
 	err = u.threadRepo.Create(ctx, &domain.Thread{
-		Name:      request.Name,
+		Title:     request.Title,
+		Type:      request.Type,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	})
