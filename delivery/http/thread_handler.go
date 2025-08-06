@@ -24,6 +24,8 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 
 	apiV1 := e.Group("/api/v1")
 	apiV1.POST("/threads", handler.Create)
+	apiV1.PATCH("/threads/:id", handler.Update)
+	apiV1.DELETE("/threads/:id", handler.Delete)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -32,7 +34,7 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, "cannot retrieve attachments")
+		return c.JSON(http.StatusBadRequest, "Failed to retrieve attachments")
 	}
 
 	req.Attachments = form.File["attachments"]
@@ -50,7 +52,7 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 	if len(req.Tags) > 0 {
 		for _, tag := range req.Tags {
 			if tag == "" {
-				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.46 : tags cannot be empty"))
+				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.54 : tags cannot be empty"))
 			}
 		}
 	}
@@ -62,11 +64,11 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 	} else if len(req.Attachments) > 0 {
 		for _, attachment := range req.Attachments {
 			if attachment == nil {
-				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.58 : file cannot be empty"))
+				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.66 : file cannot be empty"))
 			}
 
 			if attachment.Size > utils.MaxFileSize {
-				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.62 : file size exceeded the limit"))
+				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.70 : file size exceeded the limit"))
 			}
 		}
 	}
@@ -75,7 +77,86 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 		return c.JSON(utils.ParseHttpError(err))
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message": "thread created",
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"message": "Thread successfully created",
 	})
+}
+
+func (h *ThreadHandler) Update(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.UpdateThreadReq
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, "Failed to retrieve attachments")
+	}
+
+	req.AddedAttachments = form.File["added_attachments"]
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	// Handling Tag if it's not empty
+	if len(req.AddedTags) > 0 {
+		for _, tag := range req.AddedTags {
+			if tag == "" {
+				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.108 : tags cannot be empty"))
+			}
+		}
+	}
+
+	// Handling Attachment if it's not empty
+	if len(req.AddedAttachments) > utils.MaxTotalAttachments {
+		errMessage, _ := fmt.Printf("ln.45 : file length cannot more than %d", utils.MaxTotalAttachments)
+		return c.JSON(http.StatusBadRequest, utils.NewBadRequestError(errMessage))
+	} else if len(req.AddedAttachments) > 0 {
+		for _, attachment := range req.AddedAttachments {
+			if attachment == nil {
+				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.66 : file cannot be empty"))
+			}
+
+			if attachment.Size > utils.MaxFileSize {
+				return c.JSON(http.StatusBadRequest, utils.NewBadRequestError("ln.70 : file size exceeded the limit"))
+			}
+		}
+	}
+
+	if err := h.ThreadUC.Update(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Thread successfully updated",
+	})
+}
+
+func (h *ThreadHandler) Delete(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.DeleteThreadReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if rowsAffected, err := h.ThreadUC.Delete(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread successfully deleted",
+			"data": map[string]int64{
+				"rows_affected": rowsAffected,
+			},
+		})
+	}
 }

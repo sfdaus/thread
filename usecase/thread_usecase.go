@@ -43,9 +43,18 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		UpvoteNumber:   0,
 		ReportNumber:   0,
 		FollowedNumber: 0,
-		IsActive:       true,
-		CreatedBy:      "TODO_created_by",
-		CreatedAt:      time.Now().Unix(),
+
+		IsActive:  true,
+		CreatedBy: "TODO_created_by",
+		CreatedAt: time.Now().Unix(),
+	}
+
+	if request.Deadline != "" {
+		deadline, parseErr := time.Parse("02-01-2006", request.Deadline)
+		if parseErr != nil {
+			return parseErr
+		}
+		threadPayload.Deadline = deadline
 	}
 
 	var threadAttachmentsPayload []*domain.Attachment
@@ -70,5 +79,76 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	}
 
 	err = u.threadRepo.Create(ctx, threadPayload, threadAttachmentsPayload)
+	return
+}
+
+func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	threadPayload := &domain.Thread{
+		ID:        request.ID,
+		UpdatedAt: time.Now().Unix(),
+		UpdatedBy: "TODO_updated_by",
+	}
+
+	if request.Title != "" {
+		threadPayload.Title = request.Title
+	}
+
+	if request.Description != "" {
+		threadPayload.Description = request.Description
+	}
+
+	if request.Status != "" {
+		threadPayload.Status = request.Status
+	}
+
+	if request.Deadline != "" {
+		deadline, parseErr := time.Parse("02-01-2006", request.Deadline)
+		if parseErr != nil {
+			return parseErr
+		}
+		threadPayload.Deadline = deadline
+	}
+
+	if len(request.Type) > 0 {
+		threadPayload.Type = request.Type
+	}
+
+	var addedThreadAttachmentsPayload []*domain.Attachment
+
+	if len(request.AddedAttachments) > 0 {
+		for _, attachment := range request.AddedAttachments {
+			fileName := strings.Split(attachment.Filename, ".")[0]
+			mimeFromHeader := attachment.Header.Get("Content-Type")
+
+			attachmentPayload := &domain.Attachment{
+				ID:        uuid.NewString(),
+				ThreadID:  request.ID,
+				FileName:  fileName,
+				FileType:  mimeFromHeader,
+				FileUrl:   "TODO_file_url",
+				IsActive:  true,
+				CreatedBy: "TODO_created_by",
+				CreatedAt: time.Now().Unix(),
+			}
+
+			addedThreadAttachmentsPayload = append(addedThreadAttachmentsPayload, attachmentPayload)
+		}
+	}
+
+	err = u.threadRepo.Update(ctx, threadPayload, addedThreadAttachmentsPayload, request.RemoveAttachmentIDs)
+	return
+}
+func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadReq) (rowsAffected int64, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	threadPayload := &domain.Thread{
+		ID: request.ID,
+	}
+
+	rowsAffected, err = u.threadRepo.Delete(ctx, threadPayload)
 	return
 }

@@ -3,7 +3,10 @@ package pgsql
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"prakarsa-app/domain"
+	"prakarsa-app/utils"
+	"strings"
 
 	"github.com/lib/pq"
 )
@@ -54,6 +57,126 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *domain.Threa
 	// Commit jika semua sukses
 	if err = tx.Commit(); err != nil {
 		return err
+	}
+
+	return
+}
+func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *domain.Thread, attachments []*domain.Attachment, removedAttachments []string) (err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Build dynamic SET clauses from Thread struct
+	sets := []string{fmt.Sprintf("updated_at = $%d", 1), fmt.Sprintf("updated_by = $%d", 2)}
+	args := []interface{}{thread.UpdatedAt, thread.UpdatedBy}
+	idx := 3
+
+	if thread.Title != "" {
+		sets = append(sets, fmt.Sprintf("title = $%d", idx))
+		args = append(args, thread.Title)
+		idx++
+	}
+	if len(thread.Type) > 0 {
+		sets = append(sets, fmt.Sprintf("type = $%d", idx))
+		args = append(args, pq.Array(thread.Type))
+		idx++
+	}
+	if thread.Description != "" {
+		sets = append(sets, fmt.Sprintf("description = $%d", idx))
+		args = append(args, thread.Description)
+		idx++
+	}
+	if thread.Status != "" {
+		sets = append(sets, fmt.Sprintf("status = $%d", idx))
+		args = append(args, thread.Status)
+		idx++
+	}
+
+	if !thread.Deadline.IsZero() {
+		sets = append(sets, fmt.Sprintf("deadline = $%d", idx))
+		args = append(args, thread.Deadline)
+		idx++
+	}
+
+	// kalau ada sesuatu untuk di‐update, commit ke SQL
+	if len(sets) > 0 {
+		// tambahkan WHERE id = $idx
+		args = append(args, thread.ID)
+		query := fmt.Sprintf(
+			"UPDATE threads SET %s WHERE id = $%d",
+			strings.Join(sets, ", "),
+			idx,
+		)
+		if _, err = tx.ExecContext(ctx, query, args...); err != nil {
+			return
+		}
+	}
+
+	// huru hara attachment
+	var existingCount int
+	err = tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM thread_attachments WHERE thread_id = $1`,
+		thread.ID,
+	).Scan(&existingCount)
+	if err != nil {
+		return
+	}
+
+	if newAttachCount := existingCount - len(removedAttachments) + len(attachments); newAttachCount > utils.MaxTotalAttachments {
+		err = utils.NewBadRequestError("Maximum number of attachments exceeded.")
+		return
+	}
+
+	if len(removedAttachments) > 0 {
+		_, err = tx.ExecContext(ctx,
+			`DELETE FROM thread_attachments
+               WHERE thread_id = $1
+                 AND id = ANY($2)`,
+			thread.ID, pq.Array(removedAttachments),
+		)
+		if err != nil {
+			return
+		}
+	}
+
+	if len(attachments) > 0 {
+		for _, attachment := range attachments {
+			query := `INSERT INTO thread_attachments (id, thread_id, file_url, file_type, file_name, is_active, created_by, created_at)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+			if _, err = r.db.ExecContext(ctx, query, attachment.ID, attachment.ThreadID, attachment.FileUrl, attachment.FileType, attachment.FileName,
+				attachment.IsActive, attachment.CreatedBy, attachment.CreatedAt); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return
+}
+
+func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *domain.Thread) (rowsAffected int64, err error) {
+	query := "DELETE FROM threads WHERE id = $1"
+	res, err := r.db.ExecContext(ctx, query, thread.ID)
+	if err != nil {
+		return
+	}
+
+	rowsAffected, err = res.RowsAffected()
+	if err != nil {
+		return
 	}
 
 	return
