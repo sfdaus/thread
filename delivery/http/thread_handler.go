@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"prakarsa-app/delivery/middleware"
@@ -73,13 +74,23 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 		}
 	}
 
-	if err := h.ThreadUC.Create(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+	// parse JSON partner_types kalau ada
+	if req.PartnerTypeJSON != "" {
+		if err := json.Unmarshal([]byte(req.PartnerTypeJSON), &req.PartnerTypes); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "partner_types must be valid JSON array")
+		}
 	}
 
-	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"message": "Thread successfully created",
-	})
+	if res, err := h.ThreadUC.Create(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	} else {
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"message": "Thread successfully created",
+			"data": map[string]interface{}{
+				"id": res.ID,
+			},
+		})
+	}
 }
 
 func (h *ThreadHandler) Update(c echo.Context) error {

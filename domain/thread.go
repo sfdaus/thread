@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"prakarsa-app/transport/request"
+	"prakarsa-app/transport/response"
 	"time"
 )
 
@@ -27,14 +28,14 @@ type Thread struct {
 
 // // ThreadRepository represent the todos repository contract
 type ThreadRepository interface {
-	Create(ctx context.Context, thread *Thread, attachments []*Attachment) error
+	Create(ctx context.Context, thread *Thread, attachments []*Attachment, tags []*ThreadTag, institutions []*ThreadInstitution, partnerTypes []*ThreadPartnerType) error
 	Update(ctx context.Context, thread *Thread, attachments []*Attachment, removedAttachments []string) error
 	Delete(ctx context.Context, thread *Thread) (int64, error)
 }
 
 // ThreadUsecase represent the todos usecase contract
 type ThreadUsecase interface {
-	Create(ctx context.Context, request *request.CreateThreadReq) error
+	Create(ctx context.Context, request *request.CreateThreadReq) (response.CreateThreadRes, error)
 	Update(ctx context.Context, request *request.UpdateThreadReq) error
 	Delete(ctx context.Context, request *request.DeleteThreadReq) (int64, error)
 }

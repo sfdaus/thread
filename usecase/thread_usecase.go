@@ -8,6 +8,7 @@ import (
 	"prakarsa-app/domain"
 	"prakarsa-app/repository/redis"
 	"prakarsa-app/transport/request"
+	"prakarsa-app/transport/response"
 
 	"github.com/google/uuid"
 )
@@ -27,12 +28,17 @@ func NewThreadUsecase(threadRepo domain.ThreadRepository, redisRepo redis.RedisR
 	}
 }
 
-func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadReq) (err error) {
+func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadReq) (res response.CreateThreadRes, err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
 	threadUUID := uuid.NewString()
+	res.ID = threadUUID
 
-	// Create Payload
+	/**
+		Create Payload
+	**/
+
+	// payload thread
 	threadPayload := &domain.Thread{
 		ID:             threadUUID,
 		UserID:         "TODO_user_id",
@@ -52,11 +58,12 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	if request.Deadline != "" {
 		deadline, parseErr := time.Parse("02-01-2006", request.Deadline)
 		if parseErr != nil {
-			return parseErr
+			return res, parseErr
 		}
 		threadPayload.Deadline = deadline
 	}
 
+	// payload attachment
 	var threadAttachmentsPayload []*domain.Attachment
 	if len(request.Attachments) > 0 {
 		for _, attachment := range request.Attachments {
@@ -78,7 +85,66 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		}
 	}
 
-	err = u.threadRepo.Create(ctx, threadPayload, threadAttachmentsPayload)
+	// payload relation thread tags
+	var threadTagsPayload []*domain.ThreadTag
+	if len(request.Tags) > 0 {
+		for _, tag := range request.Tags {
+			threadTagsPayload = append(threadTagsPayload,
+				&domain.ThreadTag{
+					ID:        uuid.NewString(),
+					ThreadID:  threadUUID,
+					TagID:     tag,
+					IsActive:  true,
+					CreatedAt: time.Now().Unix(),
+					CreatedBy: "TODO_created_by",
+				},
+			)
+		}
+	}
+
+	// payload relation thread partner type
+	var threadPartnerTypePayload []*domain.ThreadPartnerType
+
+	if len(request.PartnerTypes) > 0 {
+		for _, partnerType := range request.PartnerTypes {
+			threadPartnerTypePayload = append(threadPartnerTypePayload,
+				&domain.ThreadPartnerType{
+					ID:                   uuid.NewString(),
+					ThreadID:             threadUUID,
+					PartnerTypeID:        partnerType.PartnerTypeID,
+					CompensationType:     partnerType.CompensationType,
+					CompensationValue:    partnerType.CompensationValue,
+					CompensationCurrency: partnerType.CompensationCurrency,
+					CompensationPeriod:   partnerType.CompensationPeriod,
+					CompensationNote:     partnerType.CompensationNote,
+					IsActive:             true,
+					CreatedAt:            time.Now().Unix(),
+					CreatedBy:            "TODO_created_by",
+				},
+			)
+		}
+	}
+
+	// payload relation thread institution
+	var threadPartnerInstitutionPayload []*domain.ThreadInstitution
+
+	if len(request.Institutions) > 0 {
+		for _, institution := range request.Institutions {
+			threadPartnerInstitutionPayload = append(threadPartnerInstitutionPayload,
+				&domain.ThreadInstitution{
+					ID:            uuid.NewString(),
+					ThreadID:      threadUUID,
+					InstitutionID: institution,
+					IsActive:      true,
+					CreatedAt:     time.Now().Unix(),
+					CreatedBy:     "TODO_created_by",
+				},
+			)
+		}
+	}
+
+	err = u.threadRepo.Create(ctx, threadPayload, threadAttachmentsPayload, threadTagsPayload, threadPartnerInstitutionPayload,
+		threadPartnerTypePayload)
 	return
 }
 

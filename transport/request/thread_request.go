@@ -7,6 +7,15 @@ import (
 )
 
 // CreateThreadReq represent create request body
+type PartnerTypeReq struct {
+	PartnerTypeID        string  `json:"partner_type_id" validate:"required"`
+	CompensationType     string  `json:"compensation_type" validate:"required"`
+	CompensationValue    float64 `json:"compensation_value" validate:"required"`
+	CompensationCurrency string  `json:"compensation_currency" validate:"required"`
+	CompensationPeriod   string  `json:"compensation_period" validate:"omitempty"`
+	CompensationNote     string  `json:"compensation_note"`
+}
+
 type CreateThreadReq struct {
 	Title        string                  `form:"title"`
 	Type         []string                `form:"type"`
@@ -16,6 +25,9 @@ type CreateThreadReq struct {
 	Attachments  []*multipart.FileHeader `form:"attachments"`
 	Tags         []string                `form:"tags"`
 	Institutions []string                `form:"institutions"`
+
+	PartnerTypeJSON string           `form:"partner_types"`
+	PartnerTypes    []PartnerTypeReq `json:"-"`
 }
 
 func (request CreateThreadReq) Validate() error {
