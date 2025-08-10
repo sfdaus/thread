@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"prakarsa-app/domain"
+	"prakarsa-app/transport/request"
 	"prakarsa-app/utils"
 	"strings"
 
@@ -227,5 +228,9 @@ func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *domain.Threa
 		return
 	}
 
+	return
+}
+
+func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.GetListThreadReq) {
 	return
 }

@@ -78,3 +78,18 @@ func (request DeleteThreadReq) Validate() error {
 		validation.Field(&request.ID, validation.Required),
 	)
 }
+
+// Get List request body
+type GetListThreadReq struct {
+	Title    string `query:"title"`
+	Status   string `query:"status"`
+	IsActive *bool  `query:"is_active"`
+	PerPage  int64  `query:"per_page"`
+	Page     int64  `query:"page"`
+}
+
+func (request GetListThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+	)
+}

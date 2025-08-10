@@ -147,7 +147,6 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		threadPartnerTypePayload)
 	return
 }
-
 func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadReq) (err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
@@ -216,5 +215,8 @@ func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadR
 	}
 
 	rowsAffected, err = u.threadRepo.Delete(ctx, threadPayload)
+	return
+}
+func (u *threadUsecase) GetList(c context.Context, request *request.GetListThreadReq) (threads []response.GetListThreadRes, err error) {
 	return
 }

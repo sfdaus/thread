@@ -31,6 +31,7 @@ type ThreadRepository interface {
 	Create(ctx context.Context, thread *Thread, attachments []*Attachment, tags []*ThreadTag, institutions []*ThreadInstitution, partnerTypes []*ThreadPartnerType) error
 	Update(ctx context.Context, thread *Thread, attachments []*Attachment, removedAttachments []string) error
 	Delete(ctx context.Context, thread *Thread) (int64, error)
+	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadRes, error)
 }
 
 // ThreadUsecase represent the todos usecase contract
@@ -38,4 +39,5 @@ type ThreadUsecase interface {
 	Create(ctx context.Context, request *request.CreateThreadReq) (response.CreateThreadRes, error)
 	Update(ctx context.Context, request *request.UpdateThreadReq) error
 	Delete(ctx context.Context, request *request.DeleteThreadReq) (int64, error)
+	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadRes, error)
 }
