@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"prakarsa-app/entity"
 	"strings"
 	"time"
 
@@ -39,7 +41,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	**/
 
 	// payload thread
-	threadPayload := &domain.Thread{
+	threadPayload := &entity.Thread{
 		ID:             threadUUID,
 		UserID:         "TODO_user_id",
 		Title:          request.Title,
@@ -60,17 +62,17 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		if parseErr != nil {
 			return res, parseErr
 		}
-		threadPayload.Deadline = deadline
+		threadPayload.Deadline = &deadline
 	}
 
 	// payload attachment
-	var threadAttachmentsPayload []*domain.Attachment
+	var threadAttachmentsPayload []*entity.Attachment
 	if len(request.Attachments) > 0 {
 		for _, attachment := range request.Attachments {
 			fileName := strings.Split(attachment.Filename, ".")[0]
 			mimeFromHeader := attachment.Header.Get("Content-Type")
 
-			attachmentPayload := &domain.Attachment{
+			attachmentPayload := &entity.Attachment{
 				ID:        uuid.NewString(),
 				ThreadID:  threadUUID,
 				FileName:  fileName,
@@ -86,11 +88,11 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	}
 
 	// payload relation thread tags
-	var threadTagsPayload []*domain.ThreadTag
+	var threadTagsPayload []*entity.ThreadTag
 	if len(request.Tags) > 0 {
 		for _, tag := range request.Tags {
 			threadTagsPayload = append(threadTagsPayload,
-				&domain.ThreadTag{
+				&entity.ThreadTag{
 					ID:        uuid.NewString(),
 					ThreadID:  threadUUID,
 					TagID:     tag,
@@ -103,12 +105,12 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	}
 
 	// payload relation thread partner type
-	var threadPartnerTypePayload []*domain.ThreadPartnerType
+	var threadPartnerTypePayload []*entity.ThreadPartnerType
 
 	if len(request.PartnerTypes) > 0 {
 		for _, partnerType := range request.PartnerTypes {
 			threadPartnerTypePayload = append(threadPartnerTypePayload,
-				&domain.ThreadPartnerType{
+				&entity.ThreadPartnerType{
 					ID:                   uuid.NewString(),
 					ThreadID:             threadUUID,
 					PartnerTypeID:        partnerType.PartnerTypeID,
@@ -126,12 +128,12 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	}
 
 	// payload relation thread institution
-	var threadPartnerInstitutionPayload []*domain.ThreadInstitution
+	var threadPartnerInstitutionPayload []*entity.ThreadInstitution
 
 	if len(request.Institutions) > 0 {
 		for _, institution := range request.Institutions {
 			threadPartnerInstitutionPayload = append(threadPartnerInstitutionPayload,
-				&domain.ThreadInstitution{
+				&entity.ThreadInstitution{
 					ID:            uuid.NewString(),
 					ThreadID:      threadUUID,
 					InstitutionID: institution,
@@ -151,7 +153,7 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
 
-	threadPayload := &domain.Thread{
+	threadPayload := &entity.Thread{
 		ID:        request.ID,
 		UpdatedAt: time.Now().Unix(),
 		UpdatedBy: "TODO_updated_by",
@@ -174,21 +176,21 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 		if parseErr != nil {
 			return parseErr
 		}
-		threadPayload.Deadline = deadline
+		threadPayload.Deadline = &deadline
 	}
 
 	if len(request.Type) > 0 {
 		threadPayload.Type = request.Type
 	}
 
-	var addedThreadAttachmentsPayload []*domain.Attachment
+	var addedThreadAttachmentsPayload []*entity.Attachment
 
 	if len(request.AddedAttachments) > 0 {
 		for _, attachment := range request.AddedAttachments {
 			fileName := strings.Split(attachment.Filename, ".")[0]
 			mimeFromHeader := attachment.Header.Get("Content-Type")
 
-			attachmentPayload := &domain.Attachment{
+			attachmentPayload := &entity.Attachment{
 				ID:        uuid.NewString(),
 				ThreadID:  request.ID,
 				FileName:  fileName,
@@ -210,13 +212,19 @@ func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadR
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
 
-	threadPayload := &domain.Thread{
+	threadPayload := &entity.Thread{
 		ID: request.ID,
 	}
 
 	rowsAffected, err = u.threadRepo.Delete(ctx, threadPayload)
 	return
 }
-func (u *threadUsecase) GetList(c context.Context, request *request.GetListThreadReq) (threads []response.GetListThreadRes, err error) {
+func (u *threadUsecase) GetList(c context.Context, request *request.GetListThreadReq) (threads []response.GetListThreadRes, meta response.MetaRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	tempThreads, meta, err := u.threadRepo.GetList(ctx, request)
+	fmt.Println(tempThreads[0])
+
 	return
 }

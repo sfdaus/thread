@@ -186,12 +186,13 @@ func (h *ThreadHandler) GetList(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
 	}
 
-	if res, err := h.ThreadUC.GetList(ctx, &req); err != nil {
+	if res, meta, err := h.ThreadUC.GetList(ctx, &req); err != nil {
 		return c.JSON(utils.ParseHttpError(err))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully retrieved",
 			"data":    res,
+			"meta":    meta,
 		})
 	}
 }

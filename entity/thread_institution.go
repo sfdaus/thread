@@ -1,4 +1,4 @@
-package domain
+package entity
 
 type ThreadInstitution struct {
 	ID            string `json:"id"`
@@ -10,4 +10,13 @@ type ThreadInstitution struct {
 	UpdatedBy     string `json:"updated_by"`
 	UpdatedAt     int64  `json:"updated_at"`
 	DeletedAt     int64  `json:"deleted_at"`
+}
+
+type SecureThreadInstitution struct {
+	ID            string `json:"id"`
+	ThreadID      string `json:"thread_id"`
+	InstitutionID string `json:"institution_id"`
+	IsActive      bool   `json:"is_active"`
+	CreatedAt     int64  `json:"created_at"`
+	UpdatedAt     int64  `json:"updated_at"`
 }

@@ -9,7 +9,6 @@ import (
 	"prakarsa-app/infrastructure/datastore"
 	"prakarsa-app/usecase"
 	"prakarsa-app/utils"
-	"prakarsa-app/utils/crypto"
 	"prakarsa-app/utils/jwt"
 	"time"
 
@@ -41,19 +40,14 @@ func main() {
 
 	// Setup repository
 	redisRepo := redisRepository.NewRedisRepository(cacheInstance)
-	todoRepo := pgsqlRepository.NewPgsqlTodoRepository(dbInstance)
 	threadRepo := pgsqlRepository.NewPgsqlThreadRepository(dbInstance)
-	userRepo := pgsqlRepository.NewPgsqlUserRepository(dbInstance)
 
 	// Setup Service
-	cryptoSvc := crypto.NewCryptoService()
 	jwtSvc := jwt.NewJWTService(configApp.JWTSecretKey)
 
 	// Setup usecase
 	ctxTimeout := time.Duration(configApp.ContextTimeout) * time.Second
-	todoUC := usecase.NewTodoUsecase(todoRepo, redisRepo, ctxTimeout)
 	threadUC := usecase.NewThreadUsecase(threadRepo, redisRepo, ctxTimeout)
-	authUC := usecase.NewAuthUsecase(userRepo, cryptoSvc, jwtSvc, ctxTimeout)
 
 	// Setup app middleware
 	appMiddleware := appMiddleware.NewMiddleware(jwtSvc)
@@ -69,9 +63,7 @@ func main() {
 		return c.String(http.StatusOK, "i am alive")
 	})
 
-	httpDelivery.NewTodoHandler(e, appMiddleware, todoUC)
 	httpDelivery.NewThreadHandler(e, appMiddleware, threadUC)
-	httpDelivery.NewAuthHandler(e, appMiddleware, authUC)
 
 	// Start server
 	go func() {
