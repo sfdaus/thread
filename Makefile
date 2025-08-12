@@ -12,7 +12,7 @@ migration-up:
 migration-down:
 	migrate -path migration -database "${DATABASE_URL}" down
 
-run-server:
+run:
 	go run ./cmd/api/main.go
 
 build-api:
