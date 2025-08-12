@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thread-api
+  namespace: prakarsa
+  labels: { app: thread-api }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: thread-api } }
+  template:
+    metadata: { labels: { app: thread-api } }
+    spec:
+      containers:
+        - name: thread-api
+          image: thread-api:0.1.0   # image lokal yang kamu import ke k3s
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          # probe TCP biar aman kalau belum ada /healthz
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          # (opsional) ENV dari Secret .env
+          envFrom:
+             - secretRef: { name: thread-api-env }

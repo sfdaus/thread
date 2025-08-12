@@ -12,11 +12,11 @@ type ThreadTag struct {
 	DeletedAt int64  `json:"deleted_at"`
 }
 
-type SecureThreadTag struct {
-	ID        string `json:"id"`
-	ThreadID  string `json:"thread_id"`
-	TagID     string `json:"tag_id"`
-	IsActive  bool   `json:"is_active"`
-	CreatedAt int64  `json:"created_at"`
-	UpdatedAt int64  `json:"updated_at"`
+type SecureTag struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsActive    bool   `json:"is_active"`
+	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
 }
