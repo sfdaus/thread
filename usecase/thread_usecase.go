@@ -253,3 +253,34 @@ func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetL
 	res.PartnerTypes = tempThread.PartnerTypes
 	return res
 }
+func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailThreadReq) (response response.GetDetailThreadRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	tempThread, err := u.threadRepo.GetDetail(ctx, request)
+
+	response = mapTempToResDetail(tempThread)
+
+	return
+}
+func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.GetDetailThreadRes {
+	res := response.GetDetailThreadRes{
+		ID:             tempThread.Thread.ID,
+		Title:          tempThread.Thread.Title,
+		Type:           tempThread.Thread.Type,
+		Description:    tempThread.Thread.Description,
+		Status:         tempThread.Thread.Status,
+		UpvoteNumber:   tempThread.Thread.UpvoteNumber,
+		ReportNumber:   tempThread.Thread.ReportNumber,
+		FollowedNumber: tempThread.Thread.FollowedNumber,
+		Deadline:       tempThread.Thread.Deadline,
+		IsActive:       tempThread.Thread.IsActive,
+		CreatedAt:      tempThread.Thread.CreatedAt,
+		UpdatedAt:      tempThread.Thread.UpdatedAt,
+	}
+	res.Tags = tempThread.Tags
+	res.Attachments = tempThread.Attachments
+	res.Institutions = tempThread.Institutions
+	res.PartnerTypes = tempThread.PartnerTypes
+	return res
+}
