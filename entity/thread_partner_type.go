@@ -20,7 +20,6 @@ type ThreadPartnerType struct {
 type SecurePartnerType struct {
 	ID                   string  `json:"id"`
 	Name                 string  `json:"name"`
-	Description          string  `json:"description"`
 	CompensationType     string  `json:"compensation_type"`
 	CompensationValue    float64 `json:"compensation_value"`
 	CompensationCurrency string  `json:"compensation_currency"`

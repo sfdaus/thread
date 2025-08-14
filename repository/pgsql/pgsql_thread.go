@@ -295,70 +295,90 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 
 	// 3. Final query
 	query := fmt.Sprintf(`
-        SELECT
-            t.id, t.user_id, t.title, t.type, t.description, t.status,
-		  t.upvote_number, t.report_number, t.followed_number, COALESCE(t.deadline, NULL) AS deadline,
-		  t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
-		
-		  COALESCE(
-			jsonb_agg(
-			  DISTINCT jsonb_build_object(
-				'id', ta.id, 'thread_id', ta.thread_id,
-				'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
-				'is_active', ta.is_active, 'created_by', ta.created_by, 'created_at', ta.created_at,
-				'updated_by', ta.updated_by, 'updated_at', ta.updated_at, 'deleted_at', ta.deleted_at
-			  )
-			) FILTER (WHERE ta.id IS NOT NULL),
-			'[]'::jsonb
-		  ) AS attachments,
-		
-		  COALESCE(
-			jsonb_agg(
-			  DISTINCT jsonb_build_object(
-				'id', tt.id, 'thread_id', tt.thread_id, 'tag_id', tt.tag_id,
-				'is_active', tt.is_active, 'created_by', tt.created_by, 'created_at', tt.created_at,
-				'updated_by', tt.updated_by, 'updated_at', tt.updated_at, 'deleted_at', tt.deleted_at
-			  )
-			) FILTER (WHERE tt.id IS NOT NULL),
-			'[]'::jsonb
-		  ) AS tags,
-		
-		  COALESCE(
-			jsonb_agg(
-			  DISTINCT jsonb_build_object(
-				'id', tpt.id, 'thread_id', tpt.thread_id, 'partner_type_id', tpt.partner_type_id,
-				'compensation_type', tpt.compensation_type, 'compensation_value', tpt.compensation_value,
-				'compensation_currency', tpt.compensation_currency, 'compensation_period', tpt.compensation_period,
-				'compensation_note', tpt.compensation_note,
-				'is_active', tpt.is_active, 'created_by', tpt.created_by, 'created_at', tpt.created_at,
-				'updated_by', tpt.updated_by, 'updated_at', tpt.updated_at, 'deleted_at', tpt.deleted_at
-			  )
-			) FILTER (WHERE tpt.id IS NOT NULL),
-			'[]'::jsonb
-		  ) AS partner_types,
-		
-		  COALESCE(
-			jsonb_agg(
-			  DISTINCT jsonb_build_object(
-				'id', ti.id, 'thread_id', ti.thread_id, 'institution_id', ti.institution_id,
-				'is_active', ti.is_active, 'created_by', ti.created_by, 'created_at', ti.created_at,
-				'updated_by', ti.updated_by, 'updated_at', ti.updated_at, 'deleted_at', ti.deleted_at
-			  )
-			) FILTER (WHERE ti.id IS NOT NULL),
-			'[]'::jsonb
-		  ) AS institutions
-        FROM threads as t
-        LEFT JOIN thread_attachments   AS ta  ON ta.thread_id  = t.id AND ta.is_active  = true
-		LEFT JOIN thread_institutions  AS ti  ON ti.thread_id  = t.id AND ti.is_active  = true
-		LEFT JOIN thread_tags          AS tt  ON tt.thread_id  = t.id AND tt.is_active  = true
-		LEFT JOIN thread_partner_types AS tpt ON tpt.thread_id = t.id AND tpt.is_active = true
-        %s
-       GROUP BY
-		  t.id, t.user_id, t.title, t.type, t.description, t.status,
-		  t.upvote_number, t.report_number, t.followed_number, t.deadline,
-		  t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at
-		ORDER BY t.created_at DESC
-        LIMIT $%d OFFSET $%d`, whereSQL, limitPos, offsetPos)
+				SELECT
+				  t.id, t.user_id, t.title, t.type, t.description, t.status,
+				  t.upvote_number, t.report_number, t.followed_number, t.deadline,
+				  t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+				
+				  COALESCE(ja.attachments, '[]'::jsonb)   AS attachments,
+				  COALESCE(jtg.tags, '[]'::jsonb)         AS tags,
+				  COALESCE(jpt.partner_types, '[]'::jsonb) AS partner_types,
+				  COALESCE(ji.institutions, '[]'::jsonb)  AS institutions
+				FROM threads AS t
+				
+				-- attachments (tanpa join referensi)
+				LEFT JOIN LATERAL (
+				  SELECT jsonb_agg(
+						   jsonb_build_object(
+							 'id', ta.id,
+							 'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
+							 'is_active', ta.is_active, 'created_at', ta.created_at,
+							 'updated_at', ta.updated_at
+						   )
+						   ORDER BY ta.created_at DESC
+						 ) AS attachments
+				  FROM thread_attachments ta
+				  WHERE ta.thread_id = t.id AND ta.is_active = true
+				) AS ja ON true
+				
+				-- tags + join ke tabel tags buat ambil name
+				LEFT JOIN LATERAL (
+				  SELECT jsonb_agg(
+						   jsonb_build_object(
+							 'id', tg.id,
+							 'name', tg.name,
+							 'description', tg.description,
+							 'is_active', tt.is_active, 'created_at', tt.created_at,
+							 'updated_at', tt.updated_at
+						   )
+						   ORDER BY tg.name
+						 ) AS tags
+				  FROM thread_tags tt
+				  JOIN tags tg ON tg.id = tt.tag_id
+				  WHERE tt.thread_id = t.id AND tt.is_active = true
+				) AS jtg ON true
+				
+				-- partner_types + join ke partner_types buat ambil name
+				LEFT JOIN LATERAL (
+				  SELECT jsonb_agg(
+						   jsonb_build_object(
+							 'id', tpt.id, 
+							 'name', pt.name,
+							 'compensation_type', tpt.compensation_type, 'compensation_value', tpt.compensation_value,
+							 'compensation_currency', tpt.compensation_currency, 'compensation_period', tpt.compensation_period,
+							 'compensation_note', tpt.compensation_note,
+							 'is_active', tpt.is_active, 'created_at', tpt.created_at,
+							'updated_at', tpt.updated_at
+						   )
+						   ORDER BY pt.name
+						 ) AS partner_types
+				  FROM thread_partner_types tpt
+				  JOIN partner_types pt ON pt.id = tpt.partner_type_id
+				  WHERE tpt.thread_id = t.id AND tpt.is_active = true
+				) AS jpt ON true
+				
+				-- institutions + join ke institutions buat ambil name
+				LEFT JOIN LATERAL (
+				  SELECT jsonb_agg(
+						   jsonb_build_object(
+							 'id', i.id,
+							 'name', i.name,
+							 'alias', i.alias,
+							 'type', i.type,
+							 'is_active', ti.is_active, 'created_at', ti.created_at,
+							 'updated_at', ti.updated_at
+						   )
+						   ORDER BY i.name
+						 ) AS institutions
+				  FROM thread_institutions ti
+				  JOIN institutions i ON i.id = ti.institution_id
+				  WHERE ti.thread_id = t.id AND ti.is_active = true
+				) AS ji ON true
+				
+				%s
+				ORDER BY t.created_at DESC
+				LIMIT $%d OFFSET $%d
+				`, whereSQL, limitPos, offsetPos)
 
 	// 4. Execute
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -403,7 +423,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		} else {
 			r.Deadline = nil
 		}
-		
+
 		if updatedByNS.Valid {
 			r.UpdatedBy = updatedByNS.String
 		} else {
@@ -445,4 +465,152 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	}
 
 	return
+}
+
+func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (res response.GetDetailThreadTempRes, err error) {
+	if request.ID == "" {
+		return res, fmt.Errorf("id is required")
+	}
+
+	const query = `SELECT
+	  t.id, t.user_id, t.title, t.type, t.description, t.status,
+	  t.upvote_number, t.report_number, t.followed_number, t.deadline,
+	  t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+	
+	  COALESCE(ja.attachments, '[]'::jsonb)        AS attachments,
+	  COALESCE(jtg.tags, '[]'::jsonb)              AS tags,
+	  COALESCE(jpt.partner_types, '[]'::jsonb)     AS partner_types,
+	  COALESCE(ji.institutions, '[]'::jsonb)       AS institutions
+	FROM threads AS t
+	
+	-- attachments
+	LEFT JOIN LATERAL (
+	  SELECT jsonb_agg(
+			   jsonb_build_object(
+				 'id', ta.id, 'thread_id', ta.thread_id,
+				 'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
+				 'is_active', ta.is_active, 'created_by', ta.created_by, 'created_at', ta.created_at,
+				 'updated_by', ta.updated_by, 'updated_at', ta.updated_at, 'deleted_at', ta.deleted_at
+			   )
+			   ORDER BY ta.created_at DESC
+			 ) AS attachments
+	  FROM thread_attachments ta
+	  WHERE ta.thread_id = t.id AND ta.is_active = true
+	) AS ja ON true
+	
+	-- tags + ref name
+	LEFT JOIN LATERAL (
+	  SELECT jsonb_agg(
+			   jsonb_build_object(
+				 'id', tt.id, 'thread_id', tt.thread_id,
+				 'tag_id', tg.id, 'name', tg.name,
+				 'is_active', tt.is_active, 'created_by', tt.created_by, 'created_at', tt.created_at,
+				 'updated_by', tt.updated_by, 'updated_at', tt.updated_at, 'deleted_at', tt.deleted_at
+			   )
+			   ORDER BY tg.name
+			 ) AS tags
+	  FROM thread_tags tt
+	  JOIN tags tg ON tg.id = tt.tag_id
+	  WHERE tt.thread_id = t.id AND tt.is_active = true
+	) AS jtg ON true
+	
+	-- partner_types + ref name
+	LEFT JOIN LATERAL (
+	  SELECT jsonb_agg(
+			   jsonb_build_object(
+				 'id', tpt.id, 'thread_id', tpt.thread_id,
+				 'partner_type_id', tpt.partner_type_id, 'partner_type_name', pt.name,
+				 'compensation_type', tpt.compensation_type, 'compensation_value', tpt.compensation_value,
+				 'compensation_currency', tpt.compensation_currency, 'compensation_period', tpt.compensation_period,
+				 'compensation_note', tpt.compensation_note,
+				 'is_active', tpt.is_active, 'created_by', tpt.created_by, 'created_at', tpt.created_at,
+				 'updated_by', tpt.updated_by, 'updated_at', tpt.updated_at, 'deleted_at', tpt.deleted_at
+			   )
+			   ORDER BY pt.name
+			 ) AS partner_types
+	  FROM thread_partner_types tpt
+	  JOIN partner_types pt ON pt.id = tpt.partner_type_id
+	  WHERE tpt.thread_id = t.id AND tpt.is_active = true
+	) AS jpt ON true
+	
+	-- institutions + ref name/alias/type
+	LEFT JOIN LATERAL (
+	  SELECT jsonb_agg(
+			   jsonb_build_object(
+				 'id', ti.id, 'thread_id', ti.thread_id,
+				 'institution_id', i.id, 'institution_name', i.name, 'alias', i.alias, 'type', i.type,
+				 'is_active', ti.is_active, 'created_by', ti.created_by, 'created_at', ti.created_at,
+				 'updated_by', ti.updated_by, 'updated_at', ti.updated_at, 'deleted_at', ti.deleted_at
+			   )
+			   ORDER BY i.name
+			 ) AS institutions
+	  FROM thread_institutions ti
+	  JOIN institutions i ON i.id = ti.institution_id
+	  WHERE ti.thread_id = t.id AND ti.is_active = true
+	) AS ji ON true
+	
+	WHERE t.id = $1
+	LIMIT 1
+	`
+
+	// struct holder untuk scan
+	type rowStruct struct {
+		entity.Thread
+		AttachmentsJSON  []byte
+		TagsJSON         []byte
+		PartnerTypesJSON []byte
+		InstitutionsJSON []byte
+	}
+
+	var row rowStruct
+
+	// nullable holders
+	var (
+		deadlineNT  sql.NullTime
+		updatedByNS sql.NullString
+		updatedAtNT sql.NullInt64
+		deletedAtNT sql.NullInt64
+	)
+
+	sc := r.db.QueryRowContext(ctx, query, request.ID)
+	if err = sc.Scan(
+		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
+		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT,
+		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
+		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
+	); err != nil {
+		// preferred: propagate sql.ErrNoRows; kalau mau custom NotFound, map di layer di atas.
+		return res, err
+	}
+
+	// map nullable → entity.Thread
+	if deadlineNT.Valid {
+		row.Deadline = &deadlineNT.Time
+	}
+	if updatedByNS.Valid {
+		row.UpdatedBy = updatedByNS.String
+	}
+	if updatedAtNT.Valid {
+		row.UpdatedAt = updatedAtNT.Int64
+	}
+	if deletedAtNT.Valid {
+		row.DeletedAt = deletedAtNT.Int64
+	}
+
+	// build response
+	res.Thread = row.Thread
+	if err := json.Unmarshal(row.AttachmentsJSON, &res.Attachments); err != nil {
+		return res, err
+	}
+	if err := json.Unmarshal(row.TagsJSON, &res.Tags); err != nil {
+		return res, err
+	}
+	if err := json.Unmarshal(row.PartnerTypesJSON, &res.PartnerTypes); err != nil {
+		return res, err
+	}
+	if err := json.Unmarshal(row.InstitutionsJSON, &res.Institutions); err != nil {
+		return res, err
+	}
+
+	return res, nil
 }
