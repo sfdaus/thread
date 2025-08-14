@@ -30,8 +30,8 @@ type GetListThreadRes struct {
 
 type GetListThreadTempRes struct {
 	Thread       entity.Thread              `json:"thread"`
-	Attachments  []entity.Attachment        `json:"attachments"`
-	Tags         []entity.ThreadTag         `json:"tags"`
-	PartnerTypes []entity.ThreadPartnerType `json:"partner_types"`
-	Institutions []entity.ThreadInstitution `json:"institutions"`
+	Attachments  []entity.SecureAttachment  `json:"attachments"`
+	Tags         []entity.SecureTag         `json:"tags"`
+	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
+	Institutions []entity.SecureInstitution `json:"institutions"`
 }

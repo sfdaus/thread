@@ -247,74 +247,9 @@ func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetL
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
 	}
-
-	// Attachments
-	if len(tempThread.Attachments) > 0 {
-		res.Attachments = make([]entity.SecureAttachment, 0, len(tempThread.Attachments))
-		for _, a := range tempThread.Attachments {
-			res.Attachments = append(res.Attachments, entity.SecureAttachment{
-				ID:        a.ID,
-				ThreadID:  a.ThreadID,
-				FileName:  a.FileName,
-				FileUrl:   a.FileUrl,
-				FileType:  a.FileType,
-				IsActive:  a.IsActive,
-				CreatedAt: a.CreatedAt,
-				UpdatedAt: a.UpdatedAt,
-			})
-		}
-	}
-
-	// Tags
-	if len(tempThread.Tags) > 0 {
-		res.Tags = make([]entity.SecureTag, 0, len(tempThread.Tags))
-		for _, tg := range tempThread.Tags {
-			res.Tags = append(res.Tags, entity.SecureTag{
-				ID:          tg.TagID, // ambil ID tag-nya
-				Name:        "",       // TODO isi
-				Description: "",
-				IsActive:    tg.IsActive,
-				CreatedAt:   tg.CreatedAt,
-				UpdatedAt:   tg.UpdatedAt,
-			})
-		}
-	}
-
-	// PartnerTypes
-	if len(tempThread.PartnerTypes) > 0 {
-		res.PartnerTypes = make([]entity.SecurePartnerType, 0, len(tempThread.PartnerTypes))
-		for _, pt := range tempThread.PartnerTypes {
-			res.PartnerTypes = append(res.PartnerTypes, entity.SecurePartnerType{
-				ID:                   pt.PartnerTypeID,
-				Name:                 "", // TODO isi
-				Description:          "",
-				CompensationType:     pt.CompensationType,
-				CompensationValue:    pt.CompensationValue,
-				CompensationCurrency: pt.CompensationCurrency,
-				CompensationPeriod:   pt.CompensationPeriod,
-				CompensationNote:     pt.CompensationNote,
-				IsActive:             pt.IsActive,
-				CreatedAt:            pt.CreatedAt,
-				UpdatedAt:            pt.UpdatedAt,
-			})
-		}
-	}
-
-	// Institutions
-	if len(tempThread.Institutions) > 0 {
-		res.Institutions = make([]entity.SecureInstitution, 0, len(tempThread.Institutions))
-		for _, inst := range tempThread.Institutions {
-			res.Institutions = append(res.Institutions, entity.SecureInstitution{
-				ID:        inst.InstitutionID,
-				Name:      "", // TODO isi
-				Alias:     "",
-				Type:      "",
-				IsActive:  inst.IsActive,
-				CreatedAt: inst.CreatedAt,
-				UpdatedAt: inst.UpdatedAt,
-			})
-		}
-	}
-
+	res.Tags = tempThread.Tags
+	res.Attachments = tempThread.Attachments
+	res.Institutions = tempThread.Institutions
+	res.PartnerTypes = tempThread.PartnerTypes
 	return res
 }
