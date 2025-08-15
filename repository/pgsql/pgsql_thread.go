@@ -359,6 +359,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 					 'compensation_type', tpt.compensation_type, 'compensation_value', tpt.compensation_value,
 					 'compensation_currency', tpt.compensation_currency, 'compensation_period', tpt.compensation_period,
 					 'compensation_note', tpt.compensation_note,
+					 'amount_needed', tpt.amount_needed,
+					 'amount_fulfilled', tpt.amount_fulfilled,
 					 'is_active', tpt.is_active, 'created_at', tpt.created_at,
 					 'updated_at', tpt.updated_at
 				   ) ORDER BY pt.name
