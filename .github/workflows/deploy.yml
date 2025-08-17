@@ -41,13 +41,14 @@ jobs:
             type=sha
 
       - name: Build & Push
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads:latest
+            ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads:${{ github.sha }}
 
       - name: Copy k8s manifests to VPS
         uses: appleboy/scp-action@v0.1.7
