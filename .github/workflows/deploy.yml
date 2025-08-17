@@ -63,10 +63,27 @@ jobs:
           version: "latest"
 
       - name: Set kubeconfig
-        run: |
-          echo "${KUBE_CONFIG}" | base64 -d > $HOME/.kube/config
+        shell: bash
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          mkdir -p "$HOME/.kube"
+
+          # Coba decode base64. Kalau gagal, pakai apa adanya (plain text).
+          if echo "$KUBE_CONFIG" | base64 -d >/dev/null 2>&1; then
+            echo "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
+          else
+            echo "$KUBE_CONFIG" > "$HOME/.kube/config"
+          fi
+
+          chmod 600 "$HOME/.kube/config"
+          # Opsional: pastikan kubectl bisa connect
+          kubectl cluster-info
+
+      - name: Ensure namespace exists
+        run: |
+        kubectl get ns prakarsa >/dev/null 2>&1 || kubectl create ns prakarsa
+
 
       - name: Set image in deployment (latest)
         run: |
