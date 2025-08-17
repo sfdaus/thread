@@ -1,33 +1,47 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: thread-api
+  name: threads
   namespace: prakarsa
-  labels: { app: thread-api }
+  labels:
+    app: threads
 spec:
   replicas: 1
-  selector: { matchLabels: { app: thread-api } }
+  selector:
+    matchLabels:
+      app: threads
   template:
-    metadata: { labels: { app: thread-api } }
+    metadata:
+      labels:
+        app: threads
     spec:
+      imagePullSecrets: 
+        - name: ghcr-login
       containers:
-        - name: thread-api
-          image: thread-api:0.1.0   # image lokal yang kamu import ke k3s
-          imagePullPolicy: IfNotPresent
+        - name: threads
+          image: ghcr.io/sfdaus/threads:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
-          # probe TCP biar aman kalau belum ada /healthz
+          envFrom:
+            - secretRef:
+                name: threads-env
           readinessProbe:
-            tcpSocket: { port: 8080 }
+            httpGet:
+              path: /healthz
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            tcpSocket: { port: 8080 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
           resources:
-            requests: { cpu: "100m", memory: "128Mi" }
-            limits:   { cpu: "500m", memory: "512Mi" }
-          # (opsional) ENV dari Secret .env
-          envFrom:
-             - secretRef: { name: thread-api-env }
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
