@@ -38,17 +38,15 @@ jobs:
           images: ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads
           tags: |
             type=raw,value=latest
-            type=sha
+            type=sha,format=long,prefix=
 
       - name: Build & Push
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads:latest
-            ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Copy k8s manifests to VPS
         uses: appleboy/scp-action@v0.1.7
@@ -72,17 +70,9 @@ jobs:
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             NS=prakarsa
             OWNER="${{ steps.vars.outputs.owner_lc }}"
-            TAG="${{ github.sha }}"
+            TAG="${{ github.sha }}"   # full 40-char
             IMAGE="ghcr.io/${OWNER}/threads:${TAG}"
 
-            # apply manifests
             kubectl -n $NS apply -f ~/threads/k8s/
-
-            # set image ke tag unik -> TRIGGER rollout
             kubectl -n $NS set image deploy/threads threads=$IMAGE --record
-
-            echo "== wait until 'Available' (max 10m) =="
-            # lebih akurat dari rollout status; true kalau deploy sudah Ready
             kubectl -n $NS wait deploy/threads --for=condition=available --timeout=600s
-
-            echo "== done =="
