@@ -1,13 +1,11 @@
 name: CI/CD Threads
-
 on:
-  push:
-    branches: [ "main" ]
+  push: { branches: [main] }
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/threads
+  IMAGE_REPO: ${{ github.repository_owner }}/threads
 
 permissions:
   contents: read
@@ -16,25 +14,20 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set lowercase owner (for org/user case-insensitivity)
+      - name: Set lowercase owner
         id: vars
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
+      - name: Login GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -42,13 +35,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner_lc }}/threads
+          images: ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads
           tags: |
             type=raw,value=latest
             type=sha
 
-      - name: Build and push
+      - name: Build & Push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -57,11 +49,18 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+      # === COPY manifest dari repo ke VPS ===
+      - name: Copy k8s manifests to VPS
+        uses: appleboy/scp-action@v0.1.7
         with:
-          version: "latest"
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "k8s/*"
+          target: "/opt/threads/k8s"
 
+      # === APPLY + SET IMAGE di VPS ===
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -69,26 +68,21 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          debug: true
           script: |
-            echo "Connected"
-            # pastikan kubeconfig default k3s
+            set -e
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            NS=prakarsa
+            OWNER="${{ steps.vars.outputs.owner_lc }}"
+            IMAGE="ghcr.io/${OWNER}/threads:latest"
+
             # pastikan namespace ada
-            kubectl get ns prakarsa >/dev/null 2>&1 || kubectl create ns prakarsa
-            # set image ke latest (owner ganti kepunyaanmu)
-            kubectl -n prakarsa set image deploy/threads threads=ghcr.io/sfdaus/threads:latest --record || true
-            # apply semua manifest
-            kubectl -n prakarsa apply -f /path/repo/k8s/ || true
-            kubectl -n prakarsa rollout status deploy/threads --timeout=180s
+            kubectl get ns $NS >/dev/null 2>&1 || kubectl create ns $NS
 
-      - name: Set image in deployment (latest)
-        run: |
-          # Pastikan owner/org lower-case untuk path GHCR
-          OWNER="${{ steps.vars.outputs.owner_lc }}"
-          kubectl -n prakarsa set image deploy/threads threads=ghcr.io/${OWNER}/threads:latest --record || true
+            # apply semua manifest dari repo yg barusan di-copy
+            kubectl -n $NS apply -f /opt/threads/k8s/
 
-      - name: Apply manifests (create/update)
-        run: |
-          kubectl -n prakarsa apply -f k8s/
-          kubectl -n prakarsa rollout status deploy/threads --timeout=180s
+            # update image (aman walau pertama kali)
+            kubectl -n $NS set image deploy/threads threads=$IMAGE --record || true
+
+            # tunggu rollout
+            kubectl -n $NS rollout status deploy/threads --timeout=180s
