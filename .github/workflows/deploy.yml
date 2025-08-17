@@ -82,8 +82,7 @@ jobs:
 
       - name: Ensure namespace exists
         run: |
-        kubectl get ns prakarsa >/dev/null 2>&1 || kubectl create ns prakarsa
-
+          kubectl get ns prakarsa >/dev/null 2>&1 || kubectl create ns prakarsa
 
       - name: Set image in deployment (latest)
         run: |
