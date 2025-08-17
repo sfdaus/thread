@@ -68,8 +68,10 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT }}
+          debug: true
           script: |
+            echo "Connected"
             # pastikan kubeconfig default k3s
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             # pastikan namespace ada
