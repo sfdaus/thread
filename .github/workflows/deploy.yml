@@ -49,7 +49,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      # === COPY manifest dari repo ke VPS ===
       - name: Copy k8s manifests to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -58,9 +57,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "k8s/*"
-          target: "/opt/threads/k8s"
-
-      # === APPLY + SET IMAGE di VPS ===
+          target: "~/threads/k8s"
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -75,14 +72,7 @@ jobs:
             OWNER="${{ steps.vars.outputs.owner_lc }}"
             IMAGE="ghcr.io/${OWNER}/threads:latest"
 
-            # pastikan namespace ada
             kubectl get ns $NS >/dev/null 2>&1 || kubectl create ns $NS
-
-            # apply semua manifest dari repo yg barusan di-copy
-            kubectl -n $NS apply -f /opt/threads/k8s/
-
-            # update image (aman walau pertama kali)
+            kubectl -n $NS apply -f ~/threads/k8s/
             kubectl -n $NS set image deploy/threads threads=$IMAGE --record || true
-
-            # tunggu rollout
             kubectl -n $NS rollout status deploy/threads --timeout=180s
