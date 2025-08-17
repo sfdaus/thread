@@ -93,3 +93,15 @@ func (request GetListThreadReq) Validate() error {
 		&request,
 	)
 }
+
+// Get Detail request body
+type GetDetailThreadReq struct {
+	ID string `param:"id"`
+}
+
+func (request GetDetailThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+	)
+}

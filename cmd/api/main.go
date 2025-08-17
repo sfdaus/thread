@@ -12,13 +12,14 @@ import (
 	"prakarsa-app/utils/jwt"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	echoSwagger "github.com/swaggo/echo-swagger"
 	httpDelivery "prakarsa-app/delivery/http"
 	appMiddleware "prakarsa-app/delivery/middleware"
 	pgsqlRepository "prakarsa-app/repository/pgsql"
 	redisRepository "prakarsa-app/repository/redis"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 // @title Go Boilerplate

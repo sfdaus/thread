@@ -16,7 +16,6 @@ type Attachment struct {
 
 type SecureAttachment struct {
 	ID        string `json:"id"`
-	ThreadID  string `json:"thread_id"`
 	FileName  string `json:"file_name"`
 	FileUrl   string `json:"file_url"`
 	FileType  string `json:"file_type"`

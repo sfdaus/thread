@@ -9,6 +9,8 @@ type ThreadPartnerType struct {
 	CompensationCurrency string  `json:"compensation_currency"`
 	CompensationPeriod   string  `json:"compensation_period"`
 	CompensationNote     string  `json:"compensation_note"`
+	AmountNeeded         int64   `json:"amount_needed"`
+	AmountFulfilled      int64   `json:"amount_fulfilled"`
 	IsActive             bool    `json:"is_active"`
 	CreatedBy            string  `json:"created_by"`
 	CreatedAt            int64   `json:"created_at"`
@@ -20,12 +22,13 @@ type ThreadPartnerType struct {
 type SecurePartnerType struct {
 	ID                   string  `json:"id"`
 	Name                 string  `json:"name"`
-	Description          string  `json:"description"`
 	CompensationType     string  `json:"compensation_type"`
 	CompensationValue    float64 `json:"compensation_value"`
 	CompensationCurrency string  `json:"compensation_currency"`
 	CompensationPeriod   string  `json:"compensation_period"`
 	CompensationNote     string  `json:"compensation_note"`
+	AmountNeeded         int64   `json:"amount_needed"`
+	AmountFulfilled      int64   `json:"amount_fulfilled"`
 	IsActive             bool    `json:"is_active"`
 	CreatedAt            int64   `json:"created_at"`
 	UpdatedAt            int64   `json:"updated_at"`

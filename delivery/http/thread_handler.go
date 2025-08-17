@@ -28,6 +28,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.PATCH("/threads/:id", handler.Update)
 	apiV1.DELETE("/threads/:id", handler.Delete)
 	apiV1.GET("/threads", handler.GetList)
+	apiV1.GET("/threads/:id", handler.GetDetail)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -193,6 +194,29 @@ func (h *ThreadHandler) GetList(c echo.Context) error {
 			"message": "Thread successfully retrieved",
 			"data":    res,
 			"meta":    meta,
+		})
+	}
+}
+
+func (h *ThreadHandler) GetDetail(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.GetDetailThreadReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if res, err := h.ThreadUC.GetDetail(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread successfully retrieved",
+			"data":    res,
 		})
 	}
 }
