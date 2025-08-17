@@ -251,6 +251,7 @@ func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetL
 	res.Attachments = tempThread.Attachments
 	res.Institutions = tempThread.Institutions
 	res.PartnerTypes = tempThread.PartnerTypes
+	res.Profile = tempThread.Profile
 	return res
 }
 func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailThreadReq) (response response.GetDetailThreadRes, err error) {
@@ -282,5 +283,6 @@ func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.Get
 	res.Attachments = tempThread.Attachments
 	res.Institutions = tempThread.Institutions
 	res.PartnerTypes = tempThread.PartnerTypes
+	res.Profile = tempThread.Profile
 	return res
 }

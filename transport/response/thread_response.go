@@ -22,6 +22,7 @@ type GetListThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
+	Profile        entity.Profile             `json:"profile"`
 	Attachments    []entity.SecureAttachment  `json:"attachments"`
 	Tags           []entity.SecureTag         `json:"tags"`
 	PartnerTypes   []entity.SecurePartnerType `json:"partner_types"`
@@ -34,6 +35,7 @@ type GetListThreadTempRes struct {
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
 	Institutions []entity.SecureInstitution `json:"institutions"`
+	Profile      entity.Profile             `json:"profile"`
 }
 
 type GetDetailThreadRes struct {
@@ -49,6 +51,7 @@ type GetDetailThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
+	Profile        entity.Profile             `json:"profile"`
 	Attachments    []entity.SecureAttachment  `json:"attachments"`
 	Tags           []entity.SecureTag         `json:"tags"`
 	PartnerTypes   []entity.SecurePartnerType `json:"partner_types"`
@@ -61,4 +64,5 @@ type GetDetailThreadTempRes struct {
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
 	Institutions []entity.SecureInstitution `json:"institutions"`
+	Profile      entity.Profile             `json:"profile"`
 }
