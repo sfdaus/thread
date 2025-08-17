@@ -59,6 +59,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           source: "k8s/*"
           target: "threads"
+          
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -71,9 +72,21 @@ jobs:
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             NS=prakarsa
             OWNER="${{ steps.vars.outputs.owner_lc }}"
-            IMAGE="ghcr.io/${OWNER}/threads:latest"
+            TAG="${{ github.sha }}"
+            IMAGE="ghcr.io/${OWNER}/threads:${TAG}"
 
             kubectl get ns $NS >/dev/null 2>&1 || kubectl create ns $NS
             kubectl -n $NS apply -f ~/threads/k8s/
-            kubectl -n $NS set image deploy/threads threads=$IMAGE --record || true
-            kubectl -n $NS rollout status deploy/threads --timeout=300s
+
+            # SELALU ganti image ke tag SHA -> memicu rollout baru
+            kubectl -n $NS set image deploy/threads threads=$IMAGE --record
+
+            # Tunggu rollout; kalau gagal, dump debug biar gampang nyari sebabnya
+            if ! kubectl -n $NS rollout status deploy/threads --timeout=300s; then
+              kubectl -n $NS get pods -o wide
+              kubectl -n $NS describe deploy/threads
+              POD=$(kubectl -n $NS get pod -l app=threads -o jsonpath='{.items[-1:].0.metadata.name}')
+              kubectl -n $NS describe pod "$POD" || true
+              kubectl -n $NS logs "$POD" --tail=200 || true
+              exit 1
+            fi
