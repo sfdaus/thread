@@ -57,7 +57,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "k8s/*"
-          target: "~/threads/k8s"
+          target: "threads"
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
