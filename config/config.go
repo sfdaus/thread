@@ -1,13 +1,13 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
 )
 
-// Config ...
 type Config struct {
 	DatabaseURL    string
 	CacheURL       string
@@ -17,25 +17,41 @@ type Config struct {
 	BaseURLTag     string
 }
 
-// LoadConfig will load config from environment variable
-func LoadConfig() (config *Config) {
-	if err := godotenv.Load(); err != nil {
-		panic(err)
-	}
+func LoadConfig() *Config {
+	// Jadikan optional: kalau .env nggak ada (di k8s), lanjut pakai ENV
+	_ = godotenv.Load()
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	cacheURL := os.Getenv("CACHE_URL")
-	loggerLevel := os.Getenv("LOGGER_LEVEL")
-	contextTimeout, _ := strconv.Atoi(os.Getenv("CONTEXT_TIMEOUT"))
-	jwtSecretKey := os.Getenv("JWT_SECRET_KEY")
-	baseURLTag := os.Getenv("BASE_URL_TAG")
-
-	return &Config{
-		DatabaseURL:    databaseURL,
-		CacheURL:       cacheURL,
-		LoggerLevel:    loggerLevel,
-		ContextTimeout: contextTimeout,
-		JWTSecretKey:   jwtSecretKey,
-		BaseURLTag:     baseURLTag,
+	cfg := &Config{
+		DatabaseURL:    mustGetEnv("DATABASE_URL"),
+		CacheURL:       getEnv("CACHE_URL", ""),
+		LoggerLevel:    getEnv("LOGGER_LEVEL", "info"),
+		ContextTimeout: getEnvInt("CONTEXT_TIMEOUT", 10),
+		JWTSecretKey:   mustGetEnv("JWT_SECRET_KEY"),
+		BaseURLTag:     getEnv("BASE_URL_TAG", ""),
 	}
+	return cfg
+}
+
+func getEnv(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
+	}
+	return def
+}
+
+func getEnvInt(key string, def int) int {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return def
+}
+
+func mustGetEnv(key string) string {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
+	}
+	log.Fatalf("%s is required", key)
+	return ""
 }
