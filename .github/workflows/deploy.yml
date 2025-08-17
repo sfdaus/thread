@@ -73,6 +73,29 @@ jobs:
             IMAGE="ghcr.io/${OWNER}/threads:latest"
 
             kubectl get ns $NS >/dev/null 2>&1 || kubectl create ns $NS
+
+            echo "== APPLY MANIFESTS =="
             kubectl -n $NS apply -f ~/threads/k8s/
+
+            echo "== SET IMAGE =="
             kubectl -n $NS set image deploy/threads threads=$IMAGE --record || true
-            kubectl -n $NS rollout status deploy/threads --timeout=180s
+
+            echo "== WAIT ROLLOUT =="
+            if ! kubectl -n $NS rollout status deploy/threads --timeout=180s; then
+              echo "== ROLLOUT TIMEOUT — COLLECTING DEBUG =="
+              kubectl -n $NS get pods -o wide
+              echo "--- Describe deployment ---"
+              kubectl -n $NS describe deploy/threads | tail -n +1
+              echo "--- Events (newest first) ---"
+              kubectl -n $NS get events --sort-by=.metadata.creationTimestamp | tail -n 50
+              echo "--- Describe latest pod ---"
+              POD=$(kubectl -n $NS get pod -l app=threads -o jsonpath='{.items[-1:].0.metadata.name}')
+              kubectl -n $NS describe pod "$POD" || true
+              echo "--- Container logs (current) ---"
+              kubectl -n $NS logs "$POD" --all-containers=true --tail=200 || true
+              echo "--- Container logs (previous if any) ---"
+              kubectl -n $NS logs "$POD" --all-containers=true --tail=200 --previous || true
+              exit 1
+            fi
+
+            echo "== DONE =="
