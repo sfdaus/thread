@@ -62,27 +62,23 @@ jobs:
         with:
           version: "latest"
 
-      - name: Set kubeconfig
-        shell: bash
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        run: |
-          mkdir -p "$HOME/.kube"
-
-          # Coba decode base64. Kalau gagal, pakai apa adanya (plain text).
-          if echo "$KUBE_CONFIG" | base64 -d >/dev/null 2>&1; then
-            echo "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
-          else
-            echo "$KUBE_CONFIG" > "$HOME/.kube/config"
-          fi
-
-          chmod 600 "$HOME/.kube/config"
-          # Opsional: pastikan kubectl bisa connect
-          kubectl cluster-info
-
-      - name: Ensure namespace exists
-        run: |
-          kubectl get ns prakarsa >/dev/null 2>&1 || kubectl create ns prakarsa
+      - name: Deploy on VPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            # pastikan kubeconfig default k3s
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            # pastikan namespace ada
+            kubectl get ns prakarsa >/dev/null 2>&1 || kubectl create ns prakarsa
+            # set image ke latest (owner ganti kepunyaanmu)
+            kubectl -n prakarsa set image deploy/threads threads=ghcr.io/sfdaus/threads:latest --record || true
+            # apply semua manifest
+            kubectl -n prakarsa apply -f /path/repo/k8s/ || true
+            kubectl -n prakarsa rollout status deploy/threads --timeout=180s
 
       - name: Set image in deployment (latest)
         run: |
