@@ -46,7 +46,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "k8s/*"
-          target: "threads/k8s"
+          target: "threads"
 
       # ------------------- DEPLOY dgn guard & cleanup -------------------
       - name: Deploy on VPS via SSH
