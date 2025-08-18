@@ -2,52 +2,40 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: threads
-  namespace: prakarsa
-  labels:
-    app: threads
+  labels: { app: threads }
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: threads
   revisionHistoryLimit: 2
+  progressDeadlineSeconds: 600
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
+      maxUnavailable: 0   # jaga zero-downtime
       maxSurge: 1
-
+  selector:
+    matchLabels: { app: threads }
   template:
     metadata:
-      labels:
-        app: threads
+      labels: { app: threads }
     spec:
       terminationGracePeriodSeconds: 10
+      imagePullSecrets:
+        - name: ghcr-login       # (lihat catatan di bawah)
       containers:
         - name: threads
-          image: ghcr.io/sfdaus/threads:latest   # akan dioverride di step set image
+          image: ghcr.io/sfdaus/threads:latest   # akan dioverride di deploy
           imagePullPolicy: Always
-          ports:
-            - containerPort: 8080
+          ports: [ { containerPort: 8080 } ]
           envFrom:
-            - secretRef:
-                name: threads-env
+            - secretRef: { name: threads-env }
           readinessProbe:
-            httpGet:
-              path: /healthz
-              port: 8080
+            httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8080
+            httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 30
             periodSeconds: 20
           resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
