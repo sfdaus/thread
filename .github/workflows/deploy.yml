@@ -13,7 +13,6 @@ jobs:
         id: vars
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
-      # ------ TAGGING: latest + FULL SHA (tanpa prefix) ------
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -38,7 +37,6 @@ jobs:
           tags:   ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      # --------- SCP k8s manifests (k8s/*) ke VPS (optional) ---------
       - name: Copy k8s manifests to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -48,7 +46,6 @@ jobs:
           source: "k8s/*"
           target: "threads"
 
-      # ------------------- DEPLOY dgn guard & cleanup -------------------
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -57,57 +54,86 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            set -euo pipefail
+            set -Eeuo pipefail
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
             NS=prakarsa
             APP=threads
             OWNER="${{ steps.vars.outputs.owner_lc }}"
             TAG="${{ github.sha }}"
-            IMAGE="ghcr.io/${OWNER}/threads:${TAG}"
+            IMAGE="ghcr.io/${OWNER}/${APP}:${TAG}"
 
-            kubectl get ns $NS >/dev/null 2>&1 || kubectl create ns $NS
+            # --- 1) upsert imagePullSecret 'ghcr-login' dari Secret K8s 'GITHUB_TOKEN' ---
+            if ! kubectl -n $NS get secret GITHUB_TOKEN >/dev/null 2>&1; then
+              echo "FATAL: secret 'GITHUB_TOKEN' tidak ada di namespace $NS"; exit 1
+            fi
+            PAT=$(
+              kubectl -n $NS get secret GITHUB_TOKEN -o jsonpath='{.data.token}' 2>/dev/null | base64 -d || true
+            )
+            [ -z "$PAT" ] && PAT=$(
+              kubectl -n $NS get secret GITHUB_TOKEN -o jsonpath='{.data.GITHUB_TOKEN}' 2>/dev/null | base64 -d || true
+            )
+            [ -z "$PAT" ] && PAT=$(
+              kubectl -n $NS get secret GITHUB_TOKEN -o jsonpath='{.data.pat}' 2>/dev/null | base64 -d || true
+            )
+            if [ -z "$PAT" ]; then
+              echo "FATAL: secret 'GITHUB_TOKEN' ada tapi key-nya bukan token/GITHUB_TOKEN/pat"; exit 1
+            fi
+
+            kubectl -n $NS create secret docker-registry ghcr-login \
+              --docker-server=ghcr.io \
+              --docker-username="${OWNER}" \
+              --docker-password="${PAT}" \
+              --docker-email="-" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+            # --- 2) pastikan deployment pakai imagePullSecrets ini ---
+            kubectl -n $NS patch deploy/$APP --type=json -p='[
+              {"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-login"}]}
+            ]' || kubectl -n $NS patch deploy/$APP --type=json -p='[
+              {"op":"replace","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-login"}]}
+            ]'
+
+            # --- 3) apply manifests & set image ke FULL SHA (trigger rollout) ---
             kubectl -n $NS apply -f ~/threads/k8s/
-
-            # Set image ke FULL SHA -> trigger rollout
             kubectl -n $NS set image deploy/$APP $APP=$IMAGE --record
 
-            echo ">> Wait Available (max 10m)..."
+            # --- 4) tunggu available, dan guard ImagePull error ---
             if ! kubectl -n $NS wait deploy/$APP --for=condition=available --timeout=600s; then
-              echo ">> Debug:"
               kubectl -n $NS get pods -l app=$APP -o wide
               POD=$(kubectl -n $NS get pods -l app=$APP --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].0.metadata.name}')
-              kubectl -n $NS describe pod "$POD" || true
-              kubectl -n $NS logs "$POD" --tail=200 || true
+              kubectl -n $NS describe pod "$POD" | sed -n '/Events/,$p' || true
               exit 1
             fi
 
-            echo ">> Verify no ImagePullBackOff on newest pod"
             POD=$(kubectl -n $NS get pods -l app=$APP --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].0.metadata.name}')
             REASON=$(kubectl -n $NS get pod "$POD" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || true)
             if [ "$REASON" = "ImagePullBackOff" ] || [ "$REASON" = "ErrImagePull" ]; then
-              echo "New pod cannot pull image: $IMAGE"
-              kubectl -n $NS get events --sort-by=.lastTimestamp | tail -n 20 || true
+              echo "New pod cannot pull $IMAGE"
+              kubectl -n $NS describe pod "$POD" | sed -n '/Events/,$p' || true
               exit 1
             fi
 
-            echo ">> Cleanup: keep 2 ReplicaSets & 2 images"
-            # 1) pangkas RS lama (replicas=0), sisakan 2 termuda
+            # --- 5) prune RS lama (keep 2) ---
             kubectl -n $NS get rs -l app=$APP --sort-by=.metadata.creationTimestamp \
               -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.replicas}{"\n"}{end}' \
             | awk '$2==0{print $1}' | head -n -2 | xargs -r kubectl -n $NS delete rs
 
-            # 2) hapus images di node (containerd) selain 2 image terakhir (current+previous)
+            # --- 6) prune image node (keep 2 image terakhir yg dipakai RS) ---
             IMAGES_SORTED=$(kubectl -n $NS get rs -l app=$APP \
               -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.spec.template.spec.containers[0].image}{"\n"}{end}' | sort)
             KEEP1=$(echo "$IMAGES_SORTED" | tail -n1 | awk '{print $2}')
             KEEP2=$(echo "$IMAGES_SORTED" | tail -n2 | head -n1 | awk '{print $2}')
-            echo "Keep images on node: $KEEP1 , $KEEP2"
-
-            for IMG in $(sudo ctr -n k8s.io images ls | awk -v r="ghcr.io/${OWNER}/threads" '$1 ~ r {print $1}'); do
+            for IMG in $(sudo ctr -n k8s.io images ls | awk -v r="ghcr.io/${OWNER}/${APP}" '$1 ~ r {print $1}'); do
               if [ "$IMG" != "$KEEP1" ] && [ "$IMG" != "$KEEP2" ]; then
-                echo "Removing $IMG"
                 sudo ctr -n k8s.io images rm "$IMG" || true
               fi
             done
 
-            echo ">> Done"
+            # --- 7) pastikan akhirnya cuma 1 pod Ready ---
+            READY=$(kubectl -n $NS get pods -l app=$APP -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep -c '^true$' || true)
+            if [ "$READY" -ne 1 ]; then
+              kubectl -n $NS get pods -l app=$APP -o wide
+              echo "Expected exactly 1 Ready pod; found $READY"; exit 1
+            fi
+            echo "Deploy OK → 1 pod Ready, kept images: $KEEP1 , $KEEP2"
