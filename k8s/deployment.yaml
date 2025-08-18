@@ -29,22 +29,24 @@ spec:
           envFrom:
             - secretRef: { name: threads-env }
           startupProbe:
-            httpGet: { path: /healthz, port: 8080 }
+            tcpSocket: { port: 8080 }
             periodSeconds: 2
-            failureThreshold: 30
+            failureThreshold: 60   # ~2 menit “waktu boot” sebelum liveness aktif
+
           readinessProbe:
-            httpGet: { path: /healthz, port: 8080 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
             timeoutSeconds: 2
-            failureThreshold: 5
-            successThreshold: 1
+            failureThreshold: 12
+
           livenessProbe:
-            httpGet: { path: /healthz, port: 8080 }
-            initialDelaySeconds: 40
-            periodSeconds: 20
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 90
+            periodSeconds: 15
             timeoutSeconds: 2
-            failureThreshold: 5
+            failureThreshold: 3
+
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits:   { cpu: 500m, memory: 512Mi }
