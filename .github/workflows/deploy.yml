@@ -76,3 +76,38 @@ jobs:
             kubectl -n $NS apply -f ~/threads/k8s/
             kubectl -n $NS set image deploy/threads threads=$IMAGE --record
             kubectl -n $NS wait deploy/threads --for=condition=available --timeout=600s
+
+      - name: Cleanup old RS & node images (keep 2)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            NS=prakarsa
+            APP=threads
+            REPO="ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads"
+
+            # Hapus RS lama, sisakan 2 terakhir
+            kubectl -n $NS get rs -l app=$APP --sort-by=.metadata.creationTimestamp \
+              -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.replicas}{"\n"}{end}' \
+            | awk '$2==0 {print $1}' | head -n -2 | xargs -r kubectl -n $NS delete rs
+
+            # Tentukan 2 image yg dipertahankan (current + previous)
+            IMAGES_SORTED=$(kubectl -n $NS get rs -l app=$APP \
+              -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.spec.template.spec.containers[0].image}{"\n"}{end}' \
+              | sort)
+            KEEP1=$(echo "$IMAGES_SORTED" | tail -n1 | awk '{print $2}')
+            KEEP2=$(echo "$IMAGES_SORTED" | tail -n2 | head -n1 | awk '{print $2}')
+            echo "Keep: $KEEP1 , $KEEP2"
+
+            # Hapus image lain dari containerd di node
+            for IMG in $(sudo ctr -n k8s.io images ls | awk -v r="$REPO" '$1 ~ r {print $1}'); do
+              if [ "$IMG" != "$KEEP1" ] && [ "$IMG" != "$KEEP2" ]; then
+                echo "Removing $IMG"
+                sudo ctr -n k8s.io images rm "$IMG" || true
+              fi
+            done
