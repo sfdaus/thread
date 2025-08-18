@@ -48,6 +48,8 @@ jobs:
 
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}   # optional fallback dari Actions
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -63,23 +65,18 @@ jobs:
             TAG="${{ github.sha }}"
             IMAGE="ghcr.io/${OWNER}/${APP}:${TAG}"
 
-            # --- 1) upsert imagePullSecret 'ghcr-login' dari Secret K8s 'GITHUB_TOKEN' ---
-            if ! kubectl -n $NS get secret GITHUB_TOKEN >/dev/null 2>&1; then
-              echo "FATAL: secret 'GITHUB_TOKEN' tidak ada di namespace $NS"; exit 1
-            fi
-            PAT=$(
-              kubectl -n $NS get secret GITHUB_TOKEN -o jsonpath='{.data.token}' 2>/dev/null | base64 -d || true
-            )
-            [ -z "$PAT" ] && PAT=$(
-              kubectl -n $NS get secret GITHUB_TOKEN -o jsonpath='{.data.GITHUB_TOKEN}' 2>/dev/null | base64 -d || true
-            )
-            [ -z "$PAT" ] && PAT=$(
-              kubectl -n $NS get secret GITHUB_TOKEN -o jsonpath='{.data.pat}' 2>/dev/null | base64 -d || true
-            )
+            # --- Ambil PAT dari Secret threads-env (key: GITHUB_TOKEN). Fallback: GHCR_PAT dari Actions.
+            PAT=$(kubectl -n $NS get secret threads-env -o jsonpath='{.data.GITHUB_TOKEN}' 2>/dev/null | base64 -d || true)
+            # coba nama key alternatif kalau perlu:
+            [ -z "$PAT" ] && PAT=$(kubectl -n $NS get secret threads-env -o jsonpath='{.data.github_token}' 2>/dev/null | base64 -d || true)
+            [ -z "$PAT" ] && PAT=$(kubectl -n $NS get secret threads-env -o jsonpath='{.data.token}'        2>/dev/null | base64 -d || true)
+            # fallback ke repo secret (opsional)
+            [ -z "$PAT" ] && PAT="${GHCR_PAT:-}"
             if [ -z "$PAT" ]; then
-              echo "FATAL: secret 'GITHUB_TOKEN' ada tapi key-nya bukan token/GITHUB_TOKEN/pat"; exit 1
+              echo "FATAL: Tidak menemukan PAT. Pastikan secret 'threads-env' punya key GITHUB_TOKEN atau set GHCR_PAT di repo secrets."; exit 1
             fi
 
+            # --- Upsert imagePullSecret ke GHCR ---
             kubectl -n $NS create secret docker-registry ghcr-login \
               --docker-server=ghcr.io \
               --docker-username="${OWNER}" \
@@ -87,25 +84,24 @@ jobs:
               --docker-email="-" \
               --dry-run=client -o yaml | kubectl apply -f -
 
-            # --- 2) pastikan deployment pakai imagePullSecrets ini ---
+            # Pastikan deployment pakai imagePullSecrets ini
             kubectl -n $NS patch deploy/$APP --type=json -p='[
               {"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-login"}]}
             ]' || kubectl -n $NS patch deploy/$APP --type=json -p='[
               {"op":"replace","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-login"}]}
             ]'
 
-            # --- 3) apply manifests & set image ke FULL SHA (trigger rollout) ---
+            # Apply manifest + set image ke FULL SHA
             kubectl -n $NS apply -f ~/threads/k8s/
             kubectl -n $NS set image deploy/$APP $APP=$IMAGE --record
 
-            # --- 4) tunggu available, dan guard ImagePull error ---
+            # Tunggu & guard ErrImagePull
             if ! kubectl -n $NS wait deploy/$APP --for=condition=available --timeout=600s; then
               kubectl -n $NS get pods -l app=$APP -o wide
               POD=$(kubectl -n $NS get pods -l app=$APP --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].0.metadata.name}')
               kubectl -n $NS describe pod "$POD" | sed -n '/Events/,$p' || true
               exit 1
             fi
-
             POD=$(kubectl -n $NS get pods -l app=$APP --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].0.metadata.name}')
             REASON=$(kubectl -n $NS get pod "$POD" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || true)
             if [ "$REASON" = "ImagePullBackOff" ] || [ "$REASON" = "ErrImagePull" ]; then
@@ -114,12 +110,11 @@ jobs:
               exit 1
             fi
 
-            # --- 5) prune RS lama (keep 2) ---
+            # Prune RS (keep 2) + prune image node (keep 2)
             kubectl -n $NS get rs -l app=$APP --sort-by=.metadata.creationTimestamp \
               -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.replicas}{"\n"}{end}' \
             | awk '$2==0{print $1}' | head -n -2 | xargs -r kubectl -n $NS delete rs
 
-            # --- 6) prune image node (keep 2 image terakhir yg dipakai RS) ---
             IMAGES_SORTED=$(kubectl -n $NS get rs -l app=$APP \
               -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.spec.template.spec.containers[0].image}{"\n"}{end}' | sort)
             KEEP1=$(echo "$IMAGES_SORTED" | tail -n1 | awk '{print $2}')
@@ -130,10 +125,9 @@ jobs:
               fi
             done
 
-            # --- 7) pastikan akhirnya cuma 1 pod Ready ---
             READY=$(kubectl -n $NS get pods -l app=$APP -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep -c '^true$' || true)
             if [ "$READY" -ne 1 ]; then
               kubectl -n $NS get pods -l app=$APP -o wide
               echo "Expected exactly 1 Ready pod; found $READY"; exit 1
             fi
-            echo "Deploy OK → 1 pod Ready, kept images: $KEEP1 , $KEEP2"
+            echo "Deploy OK → 1 pod Ready; kept images: $KEEP1 , $KEEP2"
