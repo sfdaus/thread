@@ -7,10 +7,10 @@ metadata:
     kubernetes.io/ingress.class: traefik
 spec:
   rules:
-    - host: no-middleware-dev-api.prakarsa.id/api/v1
+    - host: no-middleware-dev-api.prakarsa.id/api
       http:
         paths:
-          - path: /threads
+          - path: /v1/threads
             pathType: Prefix
             backend:
               service:
