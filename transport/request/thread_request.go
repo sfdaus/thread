@@ -14,6 +14,7 @@ type PartnerTypeReq struct {
 	CompensationCurrency string  `json:"compensation_currency" validate:"required"`
 	CompensationPeriod   string  `json:"compensation_period" validate:"omitempty"`
 	CompensationNote     string  `json:"compensation_note"`
+	AmountNeeded         int64   `json:"amount_needed"`
 }
 
 type CreateThreadReq struct {

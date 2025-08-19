@@ -118,6 +118,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 					CompensationCurrency: partnerType.CompensationCurrency,
 					CompensationPeriod:   partnerType.CompensationPeriod,
 					CompensationNote:     partnerType.CompensationNote,
+					AmountNeeded:         partnerType.AmountNeeded,
 					IsActive:             true,
 					CreatedAt:            time.Now().Unix(),
 					CreatedBy:            "TODO_created_by",

@@ -92,13 +92,13 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *entity.Threa
 		const query = `INSERT INTO thread_partner_types (
 							id, thread_id, partner_type_id,
 							compensation_type, compensation_value, compensation_currency, compensation_period, compensation_note,
-							is_active, created_by, created_at
-						) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+							amount_needed, is_active, created_by, created_at
+						) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, $12)`
 		for _, p := range partnerTypes {
 			if _, err = tx.ExecContext(ctx, query,
 				p.ID, p.ThreadID, p.PartnerTypeID,
 				p.CompensationType, p.CompensationValue, p.CompensationCurrency, p.CompensationPeriod, p.CompensationNote,
-				p.IsActive, p.CreatedBy, p.CreatedAt,
+				p.AmountNeeded, p.IsActive, p.CreatedBy, p.CreatedAt,
 			); err != nil {
 				return err
 			}
