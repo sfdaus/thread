@@ -672,15 +672,21 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 				   jsonb_build_object(
 					 'id', tpt.id,
 					 'name', pt.name,
-					 'compensation_type', tpt.compensation_type, 'compensation_value', tpt.compensation_value,
-					 'compensation_currency', tpt.compensation_currency, 'compensation_period', tpt.compensation_period,
+					 'compensation_type', ct.name,
+					 'compensation_value', tpt.compensation_value,
+					 'compensation_currency', tpt.compensation_currency,
+					 'compensation_period', tpt.compensation_period,
 					 'compensation_note', tpt.compensation_note,
-					 'is_active', tpt.is_active, 'created_at', tpt.created_at,
+					 'amount_needed', tpt.amount_needed,
+					 'amount_fulfilled', tpt.amount_fulfilled,
+					 'is_active', tpt.is_active,
+					 'created_at', tpt.created_at,
 					 'updated_at', tpt.updated_at
 				   ) ORDER BY pt.name
 				 ) AS partner_types
 		  FROM thread_partner_types tpt
 		  JOIN partner_types pt ON pt.id = tpt.partner_type_id
+		  LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type
 		  WHERE tpt.thread_id = t.id AND tpt.is_active = true
 		) jpt ON true
 
