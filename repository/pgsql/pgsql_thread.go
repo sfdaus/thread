@@ -92,13 +92,13 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *entity.Threa
 		const query = `INSERT INTO thread_partner_types (
 							id, thread_id, partner_type_id,
 							compensation_type, compensation_value, compensation_currency, compensation_period, compensation_note,
-							is_active, created_by, created_at
-						) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+							amount_needed, is_active, created_by, created_at
+						) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, $12)`
 		for _, p := range partnerTypes {
 			if _, err = tx.ExecContext(ctx, query,
 				p.ID, p.ThreadID, p.PartnerTypeID,
 				p.CompensationType, p.CompensationValue, p.CompensationCurrency, p.CompensationPeriod, p.CompensationNote,
-				p.IsActive, p.CreatedBy, p.CreatedAt,
+				p.AmountNeeded, p.IsActive, p.CreatedBy, p.CreatedAt,
 			); err != nil {
 				return err
 			}
@@ -112,7 +112,10 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *entity.Threa
 
 	return
 }
-func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, removedAttachments []string) (err error) {
+func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, removedAttachments []string,
+	addedTags []*entity.ThreadTag, removedTags []string, addedInstitutions []*entity.ThreadInstitution, removedInstitutions []string,
+	partnerTypes []*entity.UpdateThreadPartnerType, excludeRemovePartnerTypes []string) (err error) {
+
 	// Mulai transaction
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -136,23 +139,26 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 		args = append(args, thread.Title)
 		idx++
 	}
+
 	if len(thread.Type) > 0 {
 		sets = append(sets, fmt.Sprintf("type = $%d", idx))
 		args = append(args, pq.Array(thread.Type))
 		idx++
 	}
+
 	if thread.Description != "" {
 		sets = append(sets, fmt.Sprintf("description = $%d", idx))
 		args = append(args, thread.Description)
 		idx++
 	}
+
 	if thread.Status != "" {
 		sets = append(sets, fmt.Sprintf("status = $%d", idx))
 		args = append(args, thread.Status)
 		idx++
 	}
 
-	if !thread.Deadline.IsZero() {
+	if thread.Deadline != nil {
 		sets = append(sets, fmt.Sprintf("deadline = $%d", idx))
 		args = append(args, thread.Deadline)
 		idx++
@@ -201,10 +207,116 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 
 	if len(attachments) > 0 {
 		for _, attachment := range attachments {
-			query := `INSERT INTO thread_attachments (id, thread_id, file_url, file_type, file_name, is_active, created_by, created_at)
+			query := `INSERT INTO thread_attachments (id, thread_id, file_url, file_type, file_name, is_active, created_by, created_at, updated_at, updated_by)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+			if _, err = tx.ExecContext(ctx, query, attachment.ID, attachment.ThreadID, attachment.FileUrl, attachment.FileType, attachment.FileName,
+				attachment.IsActive, attachment.CreatedBy, attachment.CreatedAt, attachment.UpdatedAt, attachment.UpdatedBy); err != nil {
+				return err
+			}
+		}
+	}
+
+	/*
+		Tags
+	*/
+	if len(removedTags) > 0 {
+		_, err = tx.ExecContext(ctx,
+			`DELETE FROM thread_tags
+               WHERE thread_id = $1
+                 AND id = ANY($2)`,
+			thread.ID, pq.Array(removedTags),
+		)
+		if err != nil {
+			return
+		}
+	}
+
+	if len(addedTags) > 0 {
+		for _, tag := range addedTags {
+			query := `INSERT INTO thread_tags (id, thread_id, tag_id, is_active, created_by, created_at, updated_at, updated_by)
 						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-			if _, err = r.db.ExecContext(ctx, query, attachment.ID, attachment.ThreadID, attachment.FileUrl, attachment.FileType, attachment.FileName,
-				attachment.IsActive, attachment.CreatedBy, attachment.CreatedAt); err != nil {
+			if _, err = tx.ExecContext(ctx, query, tag.ID, tag.ThreadID, tag.TagID, tag.IsActive, tag.CreatedBy,
+				tag.CreatedAt, tag.UpdatedAt, tag.UpdatedBy); err != nil {
+				return err
+			}
+		}
+	}
+
+	/*
+		Institutions
+	*/
+	if len(removedInstitutions) > 0 {
+		_, err = tx.ExecContext(ctx,
+			`DELETE FROM thread_institutions
+               WHERE thread_id = $1
+                 AND id = ANY($2)`,
+			thread.ID, pq.Array(removedInstitutions),
+		)
+		if err != nil {
+			return
+		}
+	}
+
+	if len(addedInstitutions) > 0 {
+		for _, institution := range addedInstitutions {
+			query := `INSERT INTO thread_institutions (id, thread_id, institution_id, is_active, created_by, created_at, updated_at, updated_by)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+			if _, err = tx.ExecContext(ctx, query, institution.ID, institution.ThreadID, institution.InstitutionID, institution.IsActive, institution.CreatedBy,
+				institution.CreatedAt, institution.UpdatedAt, institution.UpdatedBy); err != nil {
+				return err
+			}
+		}
+	}
+
+	/*
+		Partner Types
+	*/
+	if len(excludeRemovePartnerTypes) > 0 {
+		vals := []any{thread.ID}
+		ph := make([]string, len(excludeRemovePartnerTypes))
+
+		for i, v := range excludeRemovePartnerTypes {
+			ph[i] = fmt.Sprintf("$%d", i+2)
+			vals = append(vals, v)
+		}
+
+		query := fmt.Sprintf(`DELETE FROM thread_partner_types t
+	 		WHERE t.thread_id=$1 AND t.id NOT IN (%s)`, strings.Join(ph, ","))
+		if _, err := tx.ExecContext(ctx, query,
+			vals...,
+		); err != nil {
+			return err
+		}
+	}
+
+	if len(partnerTypes) > 0 {
+		query := `INSERT INTO thread_partner_types(id, thread_id, partner_type_id,
+					 compensation_type, compensation_value, compensation_currency,
+					 compensation_period, compensation_note, amount_needed,
+					 created_at, created_by, updated_at, updated_by)
+					VALUES
+					($1,$2,COALESCE($3,(SELECT partner_type_id FROM thread_partner_types WHERE id = $14)),
+					 $4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+					ON CONFLICT (id) 
+					DO UPDATE 
+					SET
+				  partner_type_id=COALESCE(EXCLUDED.partner_type_id,thread_partner_types.partner_type_id),
+				  compensation_type=COALESCE(EXCLUDED.compensation_type,thread_partner_types.compensation_type),
+				  compensation_value=COALESCE(EXCLUDED.compensation_value,thread_partner_types.compensation_value),
+				  compensation_currency=COALESCE(EXCLUDED.compensation_currency,thread_partner_types.compensation_currency),
+				  compensation_period=COALESCE(EXCLUDED.compensation_period,thread_partner_types.compensation_period),
+				  compensation_note=COALESCE(EXCLUDED.compensation_note,thread_partner_types.compensation_note),
+				  amount_needed=COALESCE(EXCLUDED.amount_needed,thread_partner_types.amount_needed),
+				  updated_at=EXCLUDED.updated_at,
+				  updated_by=EXCLUDED.updated_by`
+
+		for _, partnerType := range partnerTypes {
+			if _, err = tx.ExecContext(ctx, query,
+				partnerType.ID, partnerType.ThreadID, partnerType.PartnerTypeID, partnerType.CompensationType,
+				partnerType.CompensationValue, partnerType.CompensationCurrency, partnerType.CompensationPeriod,
+				partnerType.CompensationNote, partnerType.AmountNeeded, partnerType.CreatedAt, partnerType.CreatedBy,
+				partnerType.UpdatedAt, partnerType.UpdatedBy, partnerType.ID,
+			); err != nil {
 				return err
 			}
 		}

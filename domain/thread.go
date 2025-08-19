@@ -9,8 +9,11 @@ import (
 
 // // ThreadRepository represent the todos repository contract
 type ThreadRepository interface {
-	Create(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, tags []*entity.ThreadTag, institutions []*entity.ThreadInstitution, partnerTypes []*entity.ThreadPartnerType) error
-	Update(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, removedAttachments []string) error
+	Create(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, tags []*entity.ThreadTag,
+		institutions []*entity.ThreadInstitution, partnerTypes []*entity.ThreadPartnerType) error
+	Update(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, removedAttachments []string,
+		addedTags []*entity.ThreadTag, removedTags []string, addedInstitutions []*entity.ThreadInstitution, removedInstitutions []string,
+		partnerTypes []*entity.UpdateThreadPartnerType, excludeRemovePartnerTypes []string) error
 	Delete(ctx context.Context, thread *entity.Thread) (int64, error)
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadTempRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadTempRes, error)
