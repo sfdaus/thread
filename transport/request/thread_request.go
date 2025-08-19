@@ -46,19 +46,32 @@ func (request CreateThreadReq) Validate() error {
 }
 
 // Update request body
+type PartnerTypeUpdateReq struct {
+	ID                   *string  `json:"id"`
+	PartnerTypeID        *string  `json:"partner_type_id"`
+	CompensationType     *string  `json:"compensation_type"`
+	CompensationValue    *float64 `json:"compensation_value"`
+	CompensationCurrency *string  `json:"compensation_currency"`
+	CompensationPeriod   *string  `json:"compensation_period"`
+	CompensationNote     *string  `json:"compensation_note"`
+	AmountNeeded         *int64   `json:"amount_needed"`
+}
 type UpdateThreadReq struct {
 	ID                  string                  `param:"id"`
 	Title               string                  `form:"title"`
-	Type                []string                `form:"type"`
+	Type                []string                `form:"type[]"`
 	Description         string                  `form:"description"`
 	Status              string                  `form:"status"`
 	Deadline            string                  `form:"deadline"`
-	AddedAttachments    []*multipart.FileHeader `form:"added_attachments"`
-	RemoveAttachmentIDs []string                `form:"remove_attachment_ids"`
-	AddedTags           []string                `form:"added_tags"`
-	RemoveTags          []string                `form:"remove_tags"`
-	AddedInstitutions   []string                `form:"added_institutions"`
-	RemoveInstitutions  []string                `form:"remove_institutions"`
+	AddedAttachments    []*multipart.FileHeader `form:"added_attachments[]"`
+	RemoveAttachmentIDs []string                `form:"remove_attachment_ids[]"`
+	AddedTags           []string                `form:"added_tags[]"`
+	RemoveTags          []string                `form:"remove_tags[]"`
+	AddedInstitutions   []string                `form:"added_institutions[]"`
+	RemoveInstitutions  []string                `form:"remove_institutions[]"`
+
+	PartnerTypeJSON string                 `form:"partner_types" validate:"omitempty"`
+	PartnerTypes    []PartnerTypeUpdateReq `json:"-"`
 }
 
 func (request UpdateThreadReq) Validate() error {

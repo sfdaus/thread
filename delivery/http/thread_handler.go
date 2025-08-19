@@ -140,6 +140,12 @@ func (h *ThreadHandler) Update(c echo.Context) error {
 		}
 	}
 
+	if req.PartnerTypeJSON != "" {
+		if err := json.Unmarshal([]byte(req.PartnerTypeJSON), &req.PartnerTypes); err != nil {
+			return echo.NewHTTPError(400, "partner_types must be valid JSON array")
+		}
+	}
+
 	if err := h.ThreadUC.Update(ctx, &req); err != nil {
 		return c.JSON(utils.ParseHttpError(err))
 	}

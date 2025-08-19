@@ -2,7 +2,10 @@ package usecase
 
 import (
 	"context"
+	"github.com/labstack/echo/v4"
+	"net/http"
 	"prakarsa-app/entity"
+	"prakarsa-app/utils"
 	"strings"
 	"time"
 
@@ -183,8 +186,10 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 		threadPayload.Type = request.Type
 	}
 
+	/*
+		Attachments Update
+	*/
 	var addedThreadAttachmentsPayload []*entity.Attachment
-
 	if len(request.AddedAttachments) > 0 {
 		for _, attachment := range request.AddedAttachments {
 			fileName := strings.Split(attachment.Filename, ".")[0]
@@ -199,13 +204,124 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 				IsActive:  true,
 				CreatedBy: "TODO_created_by",
 				CreatedAt: time.Now().Unix(),
+				UpdatedAt: time.Now().Unix(),
+				UpdatedBy: "TODO_updated_by",
 			}
 
 			addedThreadAttachmentsPayload = append(addedThreadAttachmentsPayload, attachmentPayload)
 		}
 	}
 
-	err = u.threadRepo.Update(ctx, threadPayload, addedThreadAttachmentsPayload, request.RemoveAttachmentIDs)
+	/*
+		Tags Update
+	*/
+	var addedThreadTagsPayload []*entity.ThreadTag
+	if len(request.AddedTags) > 0 {
+		for _, tag := range request.AddedTags {
+			threadTagPayload := &entity.ThreadTag{
+				ID:        uuid.NewString(),
+				ThreadID:  request.ID,
+				TagID:     tag,
+				IsActive:  true,
+				CreatedBy: "TODO_created_by",
+				CreatedAt: time.Now().Unix(),
+				UpdatedAt: time.Now().Unix(),
+				UpdatedBy: "TODO_updated_by",
+			}
+
+			addedThreadTagsPayload = append(addedThreadTagsPayload, threadTagPayload)
+		}
+	}
+
+	/*
+		Institutions Update
+	*/
+	var addedThreadInstitutionsPayload []*entity.ThreadInstitution
+	if len(request.AddedInstitutions) > 0 {
+		for _, institution := range request.AddedInstitutions {
+			threadInstitutionPayload := &entity.ThreadInstitution{
+				ID:            uuid.NewString(),
+				ThreadID:      request.ID,
+				InstitutionID: institution,
+				IsActive:      true,
+				CreatedBy:     "TODO_created_by",
+				CreatedAt:     time.Now().Unix(),
+				UpdatedAt:     time.Now().Unix(),
+				UpdatedBy:     "TODO_updated_by",
+			}
+
+			addedThreadInstitutionsPayload = append(addedThreadInstitutionsPayload, threadInstitutionPayload)
+		}
+	}
+
+	/*
+		Partner Types Update
+	*/
+	var addedThreadPartnerTypesPayload []*entity.UpdateThreadPartnerType
+	var excludeRemovePartnerTypes = []string{}
+
+	if len(request.PartnerTypes) > 0 {
+		for _, partnerType := range request.PartnerTypes {
+			if partnerType.ID == nil && (partnerType.PartnerTypeID == nil || partnerType.CompensationType == nil ||
+				partnerType.CompensationValue == nil || partnerType.CompensationCurrency == nil) {
+				return echo.NewHTTPError(http.StatusBadRequest, utils.NewBadRequestError(
+					"partner_type_id, compensation_type, compensation_value, and compensation_currency cannot be empty"))
+			}
+
+			// Isi payload
+			t := true
+			threadPartnerTypePayload := &entity.UpdateThreadPartnerType{
+				ThreadID:  request.ID,
+				IsActive:  &t,
+				CreatedBy: "TODO_created_by",
+				CreatedAt: time.Now().Unix(),
+				UpdatedAt: time.Now().Unix(),
+				UpdatedBy: "TODO_updated_by",
+			}
+
+			if partnerType.ID == nil {
+				threadPartnerTypePayload.ID = uuid.NewString()
+			} else {
+				threadPartnerTypePayload.ID = *partnerType.ID
+
+				excludeRemovePartnerTypes = append(excludeRemovePartnerTypes, *partnerType.ID)
+			}
+
+			if partnerType.PartnerTypeID != nil {
+				threadPartnerTypePayload.PartnerTypeID = partnerType.PartnerTypeID
+			}
+
+			if partnerType.CompensationType != nil {
+				threadPartnerTypePayload.CompensationType = partnerType.CompensationType
+			}
+
+			if partnerType.CompensationValue != nil {
+				threadPartnerTypePayload.CompensationValue = partnerType.CompensationValue
+			}
+
+			if partnerType.CompensationCurrency != nil {
+				threadPartnerTypePayload.CompensationCurrency = partnerType.CompensationCurrency
+			}
+
+			if partnerType.CompensationPeriod != nil {
+				threadPartnerTypePayload.CompensationPeriod = partnerType.CompensationPeriod
+			}
+
+			if partnerType.CompensationNote != nil {
+				threadPartnerTypePayload.CompensationNote = partnerType.CompensationNote
+			}
+
+			if partnerType.AmountNeeded != nil {
+				threadPartnerTypePayload.AmountNeeded = partnerType.AmountNeeded
+			}
+
+			addedThreadPartnerTypesPayload = append(addedThreadPartnerTypesPayload, threadPartnerTypePayload)
+		}
+	}
+
+	err = u.threadRepo.Update(ctx, threadPayload, addedThreadAttachmentsPayload, request.RemoveAttachmentIDs, addedThreadTagsPayload,
+		request.RemoveTags, addedThreadInstitutionsPayload, request.RemoveInstitutions, addedThreadPartnerTypesPayload, excludeRemovePartnerTypes)
+
 	return
 }
 func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadReq) (rowsAffected int64, err error) {
