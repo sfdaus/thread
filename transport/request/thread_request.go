@@ -119,3 +119,34 @@ func (request GetDetailThreadReq) Validate() error {
 		validation.Field(&request.ID, validation.Required),
 	)
 }
+
+// Report Thread request body
+type ReportThreadReq struct {
+	ID          string `param:"id"`
+	ReasonID    string `json:"reason_id"`
+	Description string `json:"description"`
+	UserID      string
+}
+
+func (request ReportThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.ReasonID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
+
+// Like Thread request body
+type LikeThreadReq struct {
+	ID     string `param:"id"`
+	UserID string
+}
+
+func (request LikeThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}

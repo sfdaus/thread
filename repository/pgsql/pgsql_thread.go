@@ -793,3 +793,25 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 
 	return res, nil
 }
+
+func (r *pgsqlThreadRepository) ReportThread(ctx context.Context, contentReport *entity.ContentReport) (err error) {
+	query := `INSERT INTO content_reports (id, reporter_id, thread_id, reason_id, status, is_active, created_by, 
+            	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	if _, err = r.db.ExecContext(ctx, query, contentReport.ID, contentReport.ReporterID, contentReport.ThreadID, contentReport.ReasonID,
+		contentReport.Status, contentReport.IsActive, contentReport.CreatedBy, contentReport.CreatedAt, contentReport.UpdatedAt); err != nil {
+		return err
+	}
+
+	return
+}
+
+func (r *pgsqlThreadRepository) LikeThread(ctx context.Context, contentLike *entity.ContentLike) (err error) {
+	query := `INSERT INTO content_likes (id, user_id, thread_id, is_active, created_by, 
+            	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	if _, err = r.db.ExecContext(ctx, query, contentLike.ID, contentLike.UserID, contentLike.ThreadID,
+		contentLike.IsActive, contentLike.CreatedBy, contentLike.CreatedAt, contentLike.UpdatedAt); err != nil {
+		return err
+	}
+
+	return
+}
