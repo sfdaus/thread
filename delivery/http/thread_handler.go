@@ -30,7 +30,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.GET("/threads", handler.GetList)
 	apiV1.GET("/threads/:id", handler.GetDetail)
 	apiV1.POST("/threads/report/:id", handler.ReportThread)
-	apiV1.POST("/threads/like/:id", handler.LikeThread)
+	apiV1.POST("/threads/upvote/:id", handler.UpvoteThread)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -47,6 +47,8 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
@@ -112,6 +114,8 @@ func (h *ThreadHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -165,6 +169,8 @@ func (h *ThreadHandler) Delete(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -190,6 +196,8 @@ func (h *ThreadHandler) GetList(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -213,6 +221,8 @@ func (h *ThreadHandler) GetDetail(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
@@ -253,26 +263,26 @@ func (h *ThreadHandler) ReportThread(c echo.Context) error {
 	}
 }
 
-func (h *ThreadHandler) LikeThread(c echo.Context) error {
+func (h *ThreadHandler) UpvoteThread(c echo.Context) error {
 	ctx := c.Request().Context()
-	var req request.LikeThreadReq
+	var req request.UpvoteThreadReq
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
-	req.UserID = c.Request().Header.Get("x-user-id") // case-insensitive
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
 	}
 
-	if err := h.ThreadUC.LikeThread(ctx, &req); err != nil {
+	if err := h.ThreadUC.UpvoteThread(ctx, &req); err != nil {
 		return c.JSON(utils.ParseHttpError(err))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"message": "Thread like submitted",
+			"message": "Thread upvote submitted",
 		})
 	}
 }

@@ -18,6 +18,7 @@ type PartnerTypeReq struct {
 }
 
 type CreateThreadReq struct {
+	UserID       string
 	Title        string                  `form:"title"`
 	Type         []string                `form:"type"`
 	Description  string                  `form:"description"`
@@ -42,6 +43,7 @@ func (request CreateThreadReq) Validate() error {
 			validation.Required,
 			validation.Length(1, 5).Error("tag must between 1 and 5."),
 		),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
@@ -57,7 +59,8 @@ type PartnerTypeUpdateReq struct {
 	AmountNeeded         *int64   `json:"amount_needed"`
 }
 type UpdateThreadReq struct {
-	ID                  string                  `param:"id"`
+	ID                  string `param:"id"`
+	UserID              string
 	Title               string                  `form:"title"`
 	Type                []string                `form:"type[]"`
 	Description         string                  `form:"description"`
@@ -78,23 +81,27 @@ func (request UpdateThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // Delete request body
 type DeleteThreadReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request DeleteThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // Get List request body
 type GetListThreadReq struct {
+	UserID   string
 	Title    string `query:"title"`
 	Status   string `query:"status"`
 	IsActive *bool  `query:"is_active"`
@@ -105,18 +112,21 @@ type GetListThreadReq struct {
 func (request GetListThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // Get Detail request body
 type GetDetailThreadReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request GetDetailThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
@@ -138,12 +148,12 @@ func (request ReportThreadReq) Validate() error {
 }
 
 // Like Thread request body
-type LikeThreadReq struct {
+type UpvoteThreadReq struct {
 	ID     string `param:"id"`
 	UserID string
 }
 
-func (request LikeThreadReq) Validate() error {
+func (request UpvoteThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),

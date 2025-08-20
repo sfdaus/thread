@@ -1,6 +1,6 @@
 package entity
 
-type ContentLike struct {
+type ContentUpvote struct {
 	ID        string `json:"id"`
 	UserID    string `json:"user_id"`
 	ThreadID  string `json:"thread_id"`

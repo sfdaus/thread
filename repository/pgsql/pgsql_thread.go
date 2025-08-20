@@ -129,6 +129,19 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 		}
 	}()
 
+	// 1) **Authorization check**: pastikan yang update adalah pemilik thread
+	var ownerID string
+	err = tx.QueryRowContext(ctx, `SELECT user_id FROM threads WHERE id = $1 FOR UPDATE`, thread.ID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		return utils.NewNotFoundError("Thread not found")
+	}
+	if err != nil {
+		return err
+	}
+	if ownerID != thread.UserID {
+		return utils.NewUnauthorizedError("Unauthorize")
+	}
+
 	// Build dynamic SET clauses from Thread struct
 	sets := []string{fmt.Sprintf("updated_at = $%d", 1), fmt.Sprintf("updated_by = $%d", 2)}
 	args := []interface{}{thread.UpdatedAt, thread.UpdatedBy}
@@ -331,6 +344,19 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 }
 
 func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *entity.Thread) (rowsAffected int64, err error) {
+	// 1) **Authorization check**: pastikan yang update adalah pemilik thread
+	var ownerID string
+	err = r.db.QueryRowContext(ctx, `SELECT user_id FROM threads WHERE id = $1 FOR UPDATE`, thread.ID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		return 0, utils.NewNotFoundError("Thread not found")
+	}
+	if err != nil {
+		return
+	}
+	if ownerID != thread.UserID {
+		return 0, utils.NewUnauthorizedError("Unauthorize")
+	}
+
 	query := "DELETE FROM threads WHERE id = $1"
 	res, err := r.db.ExecContext(ctx, query, thread.ID)
 	if err != nil {
@@ -350,6 +376,23 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	wheres := []string{}
 	args := []interface{}{}
 	idx := 1
+
+	query := fmt.Sprintf(`
+	SELECT
+	-- thread
+	t.id, t.user_id, t.title, t.type, t.description, t.status,
+	t.upvote_number, t.report_number, t.followed_number, t.deadline,
+	t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+		
+	(SELECT EXISTS (
+		SELECT 1 FROM content_likes clx
+		WHERE clx.thread_id = t.id AND clx.user_id = '%s' AND coalesce(clx.is_active, true)
+	)) AS is_upvoted,
+	(SELECT EXISTS (
+		SELECT 1 FROM content_reports crx
+		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
+	)) AS is_reported,
+	`, request.UserID, request.UserID)
 
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
@@ -406,12 +449,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	limitPos, offsetPos := idx, idx+1
 
 	// 4. Data query (Profile + Institution in Profile)
-	query := fmt.Sprintf(`
-		SELECT
-		  -- thread
-		  t.id, t.user_id, t.title, t.type, t.description, t.status,
-		  t.upvote_number, t.report_number, t.followed_number, t.deadline,
-		  t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+	query = fmt.Sprintf(`
+		  %s
 
 		  -- profile (1-1)
 		  COALESCE(p.name,'')        AS prof_name,
@@ -506,16 +545,17 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		%s
 		ORDER BY t.created_at DESC
 		LIMIT $%d OFFSET $%d
-	`, whereSQL, limitPos, offsetPos)
+	`, query, whereSQL, limitPos, offsetPos)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, meta, err
 	}
 	defer rows.Close()
-
 	type listRow struct {
 		entity.Thread
+		IsReported    bool
+		IsUpvoted     bool
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
@@ -543,6 +583,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			&rrow.ID, &rrow.UserID, &rrow.Title, pq.Array(&rrow.Type), &rrow.Description, &rrow.Status,
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
+
+			&rrow.IsUpvoted, &rrow.IsReported,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -574,6 +616,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 
 		var out response.GetListThreadTempRes
 		out.Thread = rrow.Thread
+		out.IsUpvoted = rrow.IsUpvoted
+		out.IsReported = rrow.IsReported
 		out.Profile = entity.Profile{
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
@@ -610,110 +654,121 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	if request.ID == "" {
 		return res, fmt.Errorf("id is required")
 	}
+	query := fmt.Sprintf(`
+	SELECT
+	-- thread
+	t.id, t.user_id, t.title, t.type, t.description, t.status,
+	t.upvote_number, t.report_number, t.followed_number, t.deadline,
+	t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+		
+	(SELECT EXISTS (
+		SELECT 1 FROM content_likes clx
+		WHERE clx.thread_id = t.id AND clx.user_id = '%s' AND coalesce(clx.is_active, true)
+	)) AS is_upvoted,
+	(SELECT EXISTS (
+		SELECT 1 FROM content_reports crx
+		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
+	)) AS is_reported,
 
-	const query = `SELECT
-		  -- thread
-		  t.id, t.user_id, t.title, t.type, t.description, t.status,
-		  t.upvote_number, t.report_number, t.followed_number, t.deadline,
-		  t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+	-- profile (1-1)
+	COALESCE(p.name,'')        AS prof_name,
+	COALESCE(p.name_alias,'')  AS prof_name_alias,
+	COALESCE(p.avatar,'') AS prof_avatar,
 
-		  -- profile (1-1)
-		  COALESCE(p.name,'')        AS prof_name,
-		  COALESCE(p.name_alias,'')  AS prof_name_alias,
-		  COALESCE(p.avatar,'') AS prof_avatar,
+	-- institution inside profile
+	COALESCE(i.name,'')  AS prof_inst_name,
+	COALESCE(i.alias,'') AS prof_inst_alias,   -- hapus baris ini kalau kolom alias belum ada di DB
+	COALESCE(i.type,'')  AS prof_inst_type,
 
-		  -- institution inside profile
-		  COALESCE(i.name,'')  AS prof_inst_name,
-		  COALESCE(i.alias,'') AS prof_inst_alias,   -- hapus baris ini kalau kolom alias belum ada di DB
-		  COALESCE(i.type,'')  AS prof_inst_type,
+	-- aggregates
+	COALESCE(ja.attachments,'[]'::jsonb)   AS attachments,
+	COALESCE(jtg.tags,'[]'::jsonb)         AS tags,
+	COALESCE(jpt.partner_types,'[]'::jsonb) AS partner_types,
+	COALESCE(ji.institutions,'[]'::jsonb)  AS institutions
+	FROM threads t
+	LEFT JOIN profiles p     ON p.user_id = t.user_id
+	LEFT JOIN institutions i ON i.id = p.institution_id
 
-		  -- aggregates
-		  COALESCE(ja.attachments,'[]'::jsonb)   AS attachments,
-		  COALESCE(jtg.tags,'[]'::jsonb)         AS tags,
-		  COALESCE(jpt.partner_types,'[]'::jsonb) AS partner_types,
-		  COALESCE(ji.institutions,'[]'::jsonb)  AS institutions
-		FROM threads t
-		LEFT JOIN profiles p     ON p.user_id = t.user_id
-		LEFT JOIN institutions i ON i.id = p.institution_id
+	-- attachments
+	LEFT JOIN LATERAL (
+		SELECT jsonb_agg(
+				jsonb_build_object(
+				'id', ta.id,
+				'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
+				'is_active', ta.is_active, 'created_at', ta.created_at,
+				'updated_at', ta.updated_at
+				) ORDER BY ta.created_at DESC
+			) AS attachments
+		FROM thread_attachments ta
+		WHERE ta.thread_id = t.id AND ta.is_active = true
+	) ja ON true
 
-		-- attachments
-		LEFT JOIN LATERAL (
-		  SELECT jsonb_agg(
-				   jsonb_build_object(
-					 'id', ta.id,
-					 'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
-					 'is_active', ta.is_active, 'created_at', ta.created_at,
-					 'updated_at', ta.updated_at
-				   ) ORDER BY ta.created_at DESC
-				 ) AS attachments
-		  FROM thread_attachments ta
-		  WHERE ta.thread_id = t.id AND ta.is_active = true
-		) ja ON true
+	-- tags
+	LEFT JOIN LATERAL (
+		SELECT jsonb_agg(
+				jsonb_build_object(
+				'id', tg.id,
+				'name', tg.name,
+				'description', tg.description,
+				'is_active', tt.is_active, 'created_at', tt.created_at,
+				'updated_at', tt.updated_at
+				) ORDER BY tg.name
+			) AS tags
+		FROM thread_tags tt
+		JOIN tags tg ON tg.id = tt.tag_id
+		WHERE tt.thread_id = t.id AND tt.is_active = true
+	) jtg ON true
 
-		-- tags
-		LEFT JOIN LATERAL (
-		  SELECT jsonb_agg(
-				   jsonb_build_object(
-					 'id', tg.id,
-					 'name', tg.name,
-					 'description', tg.description,
-					 'is_active', tt.is_active, 'created_at', tt.created_at,
-					 'updated_at', tt.updated_at
-				   ) ORDER BY tg.name
-				 ) AS tags
-		  FROM thread_tags tt
-		  JOIN tags tg ON tg.id = tt.tag_id
-		  WHERE tt.thread_id = t.id AND tt.is_active = true
-		) jtg ON true
+	-- partner types
+	LEFT JOIN LATERAL (
+		SELECT jsonb_agg(
+				jsonb_build_object(
+				'id', tpt.id,
+				'name', pt.name,
+				'compensation_type', ct.name,
+				'compensation_value', tpt.compensation_value,
+				'compensation_currency', tpt.compensation_currency,
+				'compensation_period', tpt.compensation_period,
+				'compensation_note', tpt.compensation_note,
+				'amount_needed', tpt.amount_needed,
+				'amount_fulfilled', tpt.amount_fulfilled,
+				'is_active', tpt.is_active,
+				'created_at', tpt.created_at,
+				'updated_at', tpt.updated_at
+				) ORDER BY pt.name
+			) AS partner_types
+		FROM thread_partner_types tpt
+		JOIN partner_types pt ON pt.id = tpt.partner_type_id
+		LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type
+		WHERE tpt.thread_id = t.id AND tpt.is_active = true
+	) jpt ON true
 
-		-- partner types
-		LEFT JOIN LATERAL (
-		  SELECT jsonb_agg(
-				   jsonb_build_object(
-					 'id', tpt.id,
-					 'name', pt.name,
-					 'compensation_type', ct.name,
-					 'compensation_value', tpt.compensation_value,
-					 'compensation_currency', tpt.compensation_currency,
-					 'compensation_period', tpt.compensation_period,
-					 'compensation_note', tpt.compensation_note,
-					 'amount_needed', tpt.amount_needed,
-					 'amount_fulfilled', tpt.amount_fulfilled,
-					 'is_active', tpt.is_active,
-					 'created_at', tpt.created_at,
-					 'updated_at', tpt.updated_at
-				   ) ORDER BY pt.name
-				 ) AS partner_types
-		  FROM thread_partner_types tpt
-		  JOIN partner_types pt ON pt.id = tpt.partner_type_id
-		  LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type
-		  WHERE tpt.thread_id = t.id AND tpt.is_active = true
-		) jpt ON true
+	-- institutions on thread
+	LEFT JOIN LATERAL (
+		SELECT jsonb_agg(
+				jsonb_build_object(
+				'id', i2.id,
+				'name', i2.name,
+				'alias', i2.alias,
+				'type', i2.type,
+				'is_active', ti.is_active, 'created_at', ti.created_at,
+				'updated_at', ti.updated_at
+				) ORDER BY i2.name
+			) AS institutions
+		FROM thread_institutions ti
+		JOIN institutions i2 ON i2.id = ti.institution_id
+		WHERE ti.thread_id = t.id AND ti.is_active = true
+	) ji ON true
 
-		-- institutions on thread
-		LEFT JOIN LATERAL (
-		  SELECT jsonb_agg(
-				   jsonb_build_object(
-					 'id', i2.id,
-					 'name', i2.name,
-					 'alias', i2.alias,
-					 'type', i2.type,
-					 'is_active', ti.is_active, 'created_at', ti.created_at,
-					 'updated_at', ti.updated_at
-				   ) ORDER BY i2.name
-				 ) AS institutions
-		  FROM thread_institutions ti
-		  JOIN institutions i2 ON i2.id = ti.institution_id
-		  WHERE ti.thread_id = t.id AND ti.is_active = true
-		) ji ON true
-	
 	WHERE t.id = $1
 	LIMIT 1
-	`
+	`, request.UserID, request.UserID)
 
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
+		IsReported bool
+		IsUpvoted  bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -743,6 +798,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
+		&row.IsUpvoted, &row.IsReported,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
@@ -767,6 +823,8 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 
 	// build response
 	res.Thread = row.Thread
+	res.IsUpvoted = row.IsUpvoted
+	res.IsReported = row.IsReported
 	res.Profile = entity.Profile{
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
@@ -805,11 +863,11 @@ func (r *pgsqlThreadRepository) ReportThread(ctx context.Context, contentReport 
 	return
 }
 
-func (r *pgsqlThreadRepository) LikeThread(ctx context.Context, contentLike *entity.ContentLike) (err error) {
+func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote) (err error) {
 	query := `INSERT INTO content_likes (id, user_id, thread_id, is_active, created_by, 
             	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	if _, err = r.db.ExecContext(ctx, query, contentLike.ID, contentLike.UserID, contentLike.ThreadID,
-		contentLike.IsActive, contentLike.CreatedBy, contentLike.CreatedAt, contentLike.UpdatedAt); err != nil {
+	if _, err = r.db.ExecContext(ctx, query, contentUpvote.ID, contentUpvote.UserID, contentUpvote.ThreadID,
+		contentUpvote.IsActive, contentUpvote.CreatedBy, contentUpvote.CreatedAt, contentUpvote.UpdatedAt); err != nil {
 		return err
 	}
 

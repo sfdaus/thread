@@ -18,7 +18,7 @@ type ThreadRepository interface {
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadTempRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadTempRes, error)
 	ReportThread(ctx context.Context, contentReport *entity.ContentReport) error
-	LikeThread(ctx context.Context, contentLike *entity.ContentLike) error
+	UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote) error
 }
 
 // ThreadUsecase represent the todos usecase contract
@@ -29,5 +29,5 @@ type ThreadUsecase interface {
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadRes, error)
 	ReportThread(ctx context.Context, request *request.ReportThreadReq) error
-	LikeThread(ctx context.Context, request *request.LikeThreadReq) error
+	UpvoteThread(ctx context.Context, request *request.UpvoteThreadReq) error
 }
