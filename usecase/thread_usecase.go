@@ -423,3 +423,22 @@ func (u *threadUsecase) ReportThread(c context.Context, request *request.ReportT
 	err = u.threadRepo.ReportThread(ctx, contentReportPayload)
 	return
 }
+
+func (u *threadUsecase) LikeThread(c context.Context, request *request.LikeThreadReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	contentReportPayload := &entity.ContentLike{
+		ID:        uuid.NewString(),
+		UserID:    request.UserID,
+		ThreadID:  request.ID,
+		CommentID: "",
+		IsActive:  true,
+		CreatedAt: time.Now().Unix(),
+		CreatedBy: request.UserID,
+		UpdatedAt: time.Now().Unix(),
+	}
+
+	err = u.threadRepo.LikeThread(ctx, contentReportPayload)
+	return
+}

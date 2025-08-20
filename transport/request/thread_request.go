@@ -136,3 +136,17 @@ func (request ReportThreadReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Like Thread request body
+type LikeThreadReq struct {
+	ID     string `param:"id"`
+	UserID string
+}
+
+func (request LikeThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
