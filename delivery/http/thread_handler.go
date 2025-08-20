@@ -29,6 +29,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.DELETE("/threads/:id", handler.Delete)
 	apiV1.GET("/threads", handler.GetList)
 	apiV1.GET("/threads/:id", handler.GetDetail)
+	apiV1.POST("/threads/report/:id", handler.ReportThread)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -223,6 +224,30 @@ func (h *ThreadHandler) GetDetail(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully retrieved",
 			"data":    res,
+		})
+	}
+}
+
+func (h *ThreadHandler) ReportThread(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.ReportThreadReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	req.UserID = c.Request().Header.Get("x-user-id") // case-insensitive
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if err := h.ThreadUC.ReportThread(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread report submitted",
 		})
 	}
 }

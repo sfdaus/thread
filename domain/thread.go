@@ -17,6 +17,7 @@ type ThreadRepository interface {
 	Delete(ctx context.Context, thread *entity.Thread) (int64, error)
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadTempRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadTempRes, error)
+	ReportThread(ctx context.Context, contentReport *entity.ContentReport) error
 }
 
 // ThreadUsecase represent the todos usecase contract
@@ -26,4 +27,5 @@ type ThreadUsecase interface {
 	Delete(ctx context.Context, request *request.DeleteThreadReq) (int64, error)
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadRes, error)
+	ReportThread(ctx context.Context, request *request.ReportThreadReq) error
 }

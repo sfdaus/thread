@@ -403,3 +403,23 @@ func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.Get
 	res.Profile = tempThread.Profile
 	return res
 }
+func (u *threadUsecase) ReportThread(c context.Context, request *request.ReportThreadReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	contentReportPayload := &entity.ContentReport{
+		ID:         uuid.NewString(),
+		ReporterID: request.UserID,
+		ThreadID:   request.ID,
+		CommentID:  "",
+		ReasonID:   request.ReasonID,
+		Status:     "OPEN",
+		IsActive:   true,
+		CreatedAt:  time.Now().Unix(),
+		CreatedBy:  request.UserID,
+		UpdatedAt:  time.Now().Unix(),
+	}
+
+	err = u.threadRepo.ReportThread(ctx, contentReportPayload)
+	return
+}
