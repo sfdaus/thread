@@ -59,7 +59,8 @@ type PartnerTypeUpdateReq struct {
 	AmountNeeded         *int64   `json:"amount_needed"`
 }
 type UpdateThreadReq struct {
-	ID                  string                  `param:"id"`
+	ID                  string `param:"id"`
+	UserID              string
 	Title               string                  `form:"title"`
 	Type                []string                `form:"type[]"`
 	Description         string                  `form:"description"`
@@ -80,18 +81,21 @@ func (request UpdateThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // Delete request body
 type DeleteThreadReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request DeleteThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 

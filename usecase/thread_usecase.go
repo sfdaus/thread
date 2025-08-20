@@ -46,7 +46,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	// payload thread
 	threadPayload := &entity.Thread{
 		ID:             threadUUID,
-		UserID:         "TODO_user_id",
+		UserID:         request.UserID,
 		Title:          request.Title,
 		Type:           request.Type,
 		Description:    request.Description,
@@ -56,7 +56,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		FollowedNumber: 0,
 
 		IsActive:  true,
-		CreatedBy: "TODO_created_by",
+		CreatedBy: request.UserID,
 		CreatedAt: time.Now().Unix(),
 	}
 
@@ -82,7 +82,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 				FileType:  mimeFromHeader,
 				FileUrl:   "TODO_file_url",
 				IsActive:  true,
-				CreatedBy: "TODO_created_by",
+				CreatedBy: request.UserID,
 				CreatedAt: time.Now().Unix(),
 			}
 
@@ -101,7 +101,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 					TagID:     tag,
 					IsActive:  true,
 					CreatedAt: time.Now().Unix(),
-					CreatedBy: "TODO_created_by",
+					CreatedBy: request.UserID,
 				},
 			)
 		}
@@ -125,7 +125,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 					AmountNeeded:         partnerType.AmountNeeded,
 					IsActive:             true,
 					CreatedAt:            time.Now().Unix(),
-					CreatedBy:            "TODO_created_by",
+					CreatedBy:            request.UserID,
 				},
 			)
 		}
@@ -143,7 +143,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 					InstitutionID: institution,
 					IsActive:      true,
 					CreatedAt:     time.Now().Unix(),
-					CreatedBy:     "TODO_created_by",
+					CreatedBy:     request.UserID,
 				},
 			)
 		}
@@ -160,7 +160,8 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 	threadPayload := &entity.Thread{
 		ID:        request.ID,
 		UpdatedAt: time.Now().Unix(),
-		UpdatedBy: "TODO_updated_by",
+		UpdatedBy: request.UserID,
+		UserID:    request.UserID,
 	}
 
 	if request.Title != "" {
@@ -203,10 +204,10 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 				FileType:  mimeFromHeader,
 				FileUrl:   "TODO_file_url",
 				IsActive:  true,
-				CreatedBy: "TODO_created_by",
+				CreatedBy: request.UserID,
 				CreatedAt: time.Now().Unix(),
 				UpdatedAt: time.Now().Unix(),
-				UpdatedBy: "TODO_updated_by",
+				UpdatedBy: request.UserID,
 			}
 
 			addedThreadAttachmentsPayload = append(addedThreadAttachmentsPayload, attachmentPayload)
@@ -224,10 +225,10 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 				ThreadID:  request.ID,
 				TagID:     tag,
 				IsActive:  true,
-				CreatedBy: "TODO_created_by",
+				CreatedBy: request.UserID,
 				CreatedAt: time.Now().Unix(),
 				UpdatedAt: time.Now().Unix(),
-				UpdatedBy: "TODO_updated_by",
+				UpdatedBy: request.UserID,
 			}
 
 			addedThreadTagsPayload = append(addedThreadTagsPayload, threadTagPayload)
@@ -245,10 +246,10 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 				ThreadID:      request.ID,
 				InstitutionID: institution,
 				IsActive:      true,
-				CreatedBy:     "TODO_created_by",
+				CreatedBy:     request.UserID,
 				CreatedAt:     time.Now().Unix(),
 				UpdatedAt:     time.Now().Unix(),
-				UpdatedBy:     "TODO_updated_by",
+				UpdatedBy:     request.UserID,
 			}
 
 			addedThreadInstitutionsPayload = append(addedThreadInstitutionsPayload, threadInstitutionPayload)
@@ -274,10 +275,10 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 			threadPartnerTypePayload := &entity.UpdateThreadPartnerType{
 				ThreadID:  request.ID,
 				IsActive:  &t,
-				CreatedBy: "TODO_created_by",
+				CreatedBy: request.UserID,
 				CreatedAt: time.Now().Unix(),
 				UpdatedAt: time.Now().Unix(),
-				UpdatedBy: "TODO_updated_by",
+				UpdatedBy: request.UserID,
 			}
 
 			if partnerType.ID == nil {
@@ -330,7 +331,8 @@ func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadR
 	defer cancel()
 
 	threadPayload := &entity.Thread{
-		ID: request.ID,
+		ID:     request.ID,
+		UserID: request.UserID,
 	}
 
 	rowsAffected, err = u.threadRepo.Delete(ctx, threadPayload)

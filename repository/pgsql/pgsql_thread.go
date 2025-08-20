@@ -129,6 +129,19 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 		}
 	}()
 
+	// 1) **Authorization check**: pastikan yang update adalah pemilik thread
+	var ownerID string
+	err = tx.QueryRowContext(ctx, `SELECT user_id FROM threads WHERE id = $1 FOR UPDATE`, thread.ID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		return utils.NewNotFoundError("Thread not found")
+	}
+	if err != nil {
+		return err
+	}
+	if ownerID != thread.UserID {
+		return utils.NewUnauthorizedError("Unauthorize")
+	}
+
 	// Build dynamic SET clauses from Thread struct
 	sets := []string{fmt.Sprintf("updated_at = $%d", 1), fmt.Sprintf("updated_by = $%d", 2)}
 	args := []interface{}{thread.UpdatedAt, thread.UpdatedBy}
@@ -331,6 +344,19 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 }
 
 func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *entity.Thread) (rowsAffected int64, err error) {
+	// 1) **Authorization check**: pastikan yang update adalah pemilik thread
+	var ownerID string
+	err = r.db.QueryRowContext(ctx, `SELECT user_id FROM threads WHERE id = $1 FOR UPDATE`, thread.ID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		return 0, utils.NewNotFoundError("Thread not found")
+	}
+	if err != nil {
+		return
+	}
+	if ownerID != thread.UserID {
+		return 0, utils.NewUnauthorizedError("Unauthorize")
+	}
+
 	query := "DELETE FROM threads WHERE id = $1"
 	res, err := r.db.ExecContext(ctx, query, thread.ID)
 	if err != nil {
