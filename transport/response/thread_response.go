@@ -19,6 +19,8 @@ type GetListThreadRes struct {
 	ReportNumber   int64                      `json:"report_number"`
 	FollowedNumber int64                      `json:"followed_number"`
 	Deadline       *time.Time                 `json:"deadline"`
+	IsReported     bool                       `json:"is_reported"`
+	IsUpvoted      bool                       `json:"is_upvoted"`
 	IsActive       bool                       `json:"is_active"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
@@ -31,6 +33,8 @@ type GetListThreadRes struct {
 
 type GetListThreadTempRes struct {
 	Thread       entity.Thread              `json:"thread"`
+	IsReported   bool                       `json:"is_reported"`
+	IsUpvoted    bool                       `json:"is_upvoted"`
 	Attachments  []entity.SecureAttachment  `json:"attachments"`
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
@@ -48,6 +52,8 @@ type GetDetailThreadRes struct {
 	ReportNumber   int64                      `json:"report_number"`
 	FollowedNumber int64                      `json:"followed_number"`
 	Deadline       *time.Time                 `json:"deadline"`
+	IsReported     bool                       `json:"is_reported"`
+	IsUpvoted      bool                       `json:"is_upvoted"`
 	IsActive       bool                       `json:"is_active"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
@@ -60,6 +66,8 @@ type GetDetailThreadRes struct {
 
 type GetDetailThreadTempRes struct {
 	Thread       entity.Thread              `json:"thread"`
+	IsReported   bool                       `json:"is_reported"`
+	IsUpvoted    bool                       `json:"is_upvoted"`
 	Attachments  []entity.SecureAttachment  `json:"attachments"`
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`

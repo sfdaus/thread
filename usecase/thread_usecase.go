@@ -2,12 +2,13 @@ package usecase
 
 import (
 	"context"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"prakarsa-app/entity"
 	"prakarsa-app/utils"
 	"strings"
 	"time"
+
+	"github.com/labstack/echo/v4"
 
 	"prakarsa-app/domain"
 	"prakarsa-app/repository/redis"
@@ -360,6 +361,8 @@ func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetL
 		ReportNumber:   tempThread.Thread.ReportNumber,
 		FollowedNumber: tempThread.Thread.FollowedNumber,
 		Deadline:       tempThread.Thread.Deadline,
+		IsReported:     tempThread.IsReported,
+		IsUpvoted:      tempThread.IsUpvoted,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -392,6 +395,8 @@ func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.Get
 		ReportNumber:   tempThread.Thread.ReportNumber,
 		FollowedNumber: tempThread.Thread.FollowedNumber,
 		Deadline:       tempThread.Thread.Deadline,
+		IsReported:     tempThread.IsReported,
+		IsUpvoted:      tempThread.IsUpvoted,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -424,11 +429,11 @@ func (u *threadUsecase) ReportThread(c context.Context, request *request.ReportT
 	return
 }
 
-func (u *threadUsecase) LikeThread(c context.Context, request *request.LikeThreadReq) (err error) {
+func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteThreadReq) (err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
 
-	contentReportPayload := &entity.ContentLike{
+	contentReportPayload := &entity.ContentUpvote{
 		ID:        uuid.NewString(),
 		UserID:    request.UserID,
 		ThreadID:  request.ID,
@@ -439,6 +444,6 @@ func (u *threadUsecase) LikeThread(c context.Context, request *request.LikeThrea
 		UpdatedAt: time.Now().Unix(),
 	}
 
-	err = u.threadRepo.LikeThread(ctx, contentReportPayload)
+	err = u.threadRepo.UpvoteThread(ctx, contentReportPayload)
 	return
 }
