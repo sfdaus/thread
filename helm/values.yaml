@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/sfdaus/thread
+  repository: ghcr.io/sfdaus/threads
   tag: "latest"
   pullPolicy: Always
 
@@ -14,5 +14,8 @@ ingress:
   hostname: "no-middleware-dev-api.prakarsa.id"
   certResolver: le
   className: traefik
+
+imagePullSecrets:
+  name: ghcr-secret
 
 secretName: threads-env
