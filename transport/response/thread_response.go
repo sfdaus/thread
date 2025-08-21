@@ -19,6 +19,7 @@ type GetListThreadRes struct {
 	ReportNumber   int64                      `json:"report_number"`
 	FollowedNumber int64                      `json:"followed_number"`
 	Deadline       *time.Time                 `json:"deadline"`
+	Slug           string                     `json:"slug"`
 	IsReported     bool                       `json:"is_reported"`
 	IsUpvoted      bool                       `json:"is_upvoted"`
 	IsActive       bool                       `json:"is_active"`
@@ -52,6 +53,7 @@ type GetDetailThreadRes struct {
 	ReportNumber   int64                      `json:"report_number"`
 	FollowedNumber int64                      `json:"followed_number"`
 	Deadline       *time.Time                 `json:"deadline"`
+	Slug           string                     `json:"slug"`
 	IsReported     bool                       `json:"is_reported"`
 	IsUpvoted      bool                       `json:"is_upvoted"`
 	IsActive       bool                       `json:"is_active"`
@@ -73,4 +75,8 @@ type GetDetailThreadTempRes struct {
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
 	Institutions []entity.SecureInstitution `json:"institutions"`
 	Profile      entity.Profile             `json:"profile"`
+}
+
+type ShareThreadRes struct {
+	URL string `json:"url"`
 }
