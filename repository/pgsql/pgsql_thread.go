@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"prakarsa-app/entity"
 	"prakarsa-app/transport/request"
@@ -45,9 +46,10 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *entity.Threa
 	}()
 
 	query := `INSERT INTO threads (id, user_id, title, type, description, upvote_number, report_number, followed_number, 
-				status, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12)`
-	if _, err = r.db.ExecContext(ctx, query, thread.ID, thread.UserID, thread.Title, pq.Array(thread.Type), thread.Description, thread.UpvoteNumber, thread.ReportNumber,
-		thread.FollowedNumber, thread.Status, thread.CreatedBy, thread.CreatedAt, thread.CreatedAt); err != nil {
+				status, short_id, slug, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12, $13, $14)`
+	if _, err = r.db.ExecContext(ctx, query, thread.ID, thread.UserID, thread.Title, pq.Array(thread.Type), thread.Description, thread.UpvoteNumber,
+		thread.ReportNumber, thread.FollowedNumber, thread.Status, thread.ShortID, thread.Slug, thread.CreatedBy, thread.CreatedAt,
+		thread.CreatedAt); err != nil {
 		return err
 	}
 
@@ -150,6 +152,10 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 	if thread.Title != "" {
 		sets = append(sets, fmt.Sprintf("title = $%d", idx))
 		args = append(args, thread.Title)
+		idx++
+
+		sets = append(sets, fmt.Sprintf("slug = $%d", idx))
+		args = append(args, thread.Slug)
 		idx++
 	}
 
@@ -381,7 +387,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	SELECT
 	-- thread
 	t.id, t.user_id, t.title, t.type, t.description, t.status,
-	t.upvote_number, t.report_number, t.followed_number, t.deadline,
+	t.upvote_number, t.report_number, t.followed_number, t.deadline, t.slug,
 	t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
 		
 	(SELECT EXISTS (
@@ -581,7 +587,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 
 		if err := rows.Scan(
 			&rrow.ID, &rrow.UserID, &rrow.Title, pq.Array(&rrow.Type), &rrow.Description, &rrow.Status,
-			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT,
+			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
 			&rrow.IsUpvoted, &rrow.IsReported,
@@ -658,7 +664,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	SELECT
 	-- thread
 	t.id, t.user_id, t.title, t.type, t.description, t.status,
-	t.upvote_number, t.report_number, t.followed_number, t.deadline,
+	t.upvote_number, t.report_number, t.followed_number, t.deadline, t.slug,
 	t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
 		
 	(SELECT EXISTS (
@@ -796,7 +802,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	sc := r.db.QueryRowContext(ctx, query, request.ID)
 	if err = sc.Scan(
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
-		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT,
+		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
 		&row.IsUpvoted, &row.IsReported,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
@@ -804,6 +810,9 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
 	); err != nil {
 		// preferred: propagate sql.ErrNoRows; kalau mau custom NotFound, map di layer di atas.
+		if errors.Is(err, sql.ErrNoRows) {
+			return res, errors.New("Thread not found")
+		}
 		return res, err
 	}
 
@@ -872,4 +881,66 @@ func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote 
 	}
 
 	return
+}
+
+func (r *pgsqlThreadRepository) ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (thread *entity.Thread, err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	const q = `
+        SELECT id, title, short_id, slug
+        FROM threads
+        WHERE id = $1
+          AND is_active = true
+          AND deleted_at IS NULL
+        LIMIT 1
+    `
+
+	t := new(entity.Thread)
+
+	// nullable holders
+	var (
+		shortID, slug sql.NullString
+	)
+
+	err = tx.QueryRowContext(ctx, q, request.ID).
+		Scan(&t.ID, &t.Title, &shortID, &slug)
+	if err == sql.ErrNoRows {
+		return nil, utils.NewNotFoundError("Thread not found")
+	} else if err != nil {
+		return nil, err
+	}
+
+	t.Slug = slug.String
+	t.ShortID = shortID.String
+
+	// Insert Log Share
+	const insertQ = `INSERT INTO share_events (id, thread_id, user_id, action, counter, created_by, created_at, updated_at) 
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+					ON CONFLICT (thread_id, user_id) 
+					DO UPDATE 
+					SET
+					counter=share_events.counter + 1,
+					updated_at=EXCLUDED.updated_at,
+				  	updated_by=EXCLUDED.created_by`
+
+	if _, err = tx.ExecContext(ctx, insertQ, shareEvent.ID, shareEvent.ThreadID, shareEvent.UserID, shareEvent.Action,
+		shareEvent.Counter, shareEvent.CreatedBy, shareEvent.CreatedAt, shareEvent.UpdatedAt); err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	return t, nil
 }

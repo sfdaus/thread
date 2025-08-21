@@ -15,6 +15,8 @@ type Thread struct {
 	ReportNumber   int64      `json:"report_number"`
 	FollowedNumber int64      `json:"followed_number"`
 	Deadline       *time.Time `json:"deadline"`
+	ShortID        string     `json:"short_id"`
+	Slug           string     `json:"slug"`
 	IsActive       bool       `json:"is_active"`
 	CreatedBy      string     `json:"created_by"`
 	CreatedAt      int64      `json:"created_at"`

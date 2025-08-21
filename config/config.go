@@ -9,12 +9,12 @@ import (
 )
 
 type Config struct {
-	DatabaseURL    string
-	CacheURL       string
-	LoggerLevel    string
-	ContextTimeout int
-	JWTSecretKey   string
-	BaseURLTag     string
+	DatabaseURL     string
+	CacheURL        string
+	LoggerLevel     string
+	ContextTimeout  int
+	JWTSecretKey    string
+	BaseURLPrakarsa string
 }
 
 func LoadConfig() *Config {
@@ -22,12 +22,12 @@ func LoadConfig() *Config {
 	_ = godotenv.Load()
 
 	cfg := &Config{
-		DatabaseURL:    mustGetEnv("DATABASE_URL"),
-		CacheURL:       getEnv("CACHE_URL", ""),
-		LoggerLevel:    getEnv("LOGGER_LEVEL", "info"),
-		ContextTimeout: getEnvInt("CONTEXT_TIMEOUT", 10),
-		JWTSecretKey:   mustGetEnv("JWT_SECRET_KEY"),
-		BaseURLTag:     getEnv("BASE_URL_TAG", ""),
+		DatabaseURL:     mustGetEnv("DATABASE_URL"),
+		CacheURL:        getEnv("CACHE_URL", ""),
+		LoggerLevel:     getEnv("LOGGER_LEVEL", "info"),
+		ContextTimeout:  getEnvInt("CONTEXT_TIMEOUT", 10),
+		JWTSecretKey:    mustGetEnv("JWT_SECRET_KEY"),
+		BaseURLPrakarsa: mustGetEnv("BASE_URL_PRAKARSA"),
 	}
 	return cfg
 }

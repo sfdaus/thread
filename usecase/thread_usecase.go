@@ -2,7 +2,11 @@ package usecase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
+	"prakarsa-app/config"
 	"prakarsa-app/entity"
 	"prakarsa-app/utils"
 	"strings"
@@ -44,6 +48,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	**/
 
 	// payload thread
+	shortID, err := utils.GenerateShortURL(12)
 	threadPayload := &entity.Thread{
 		ID:             threadUUID,
 		UserID:         request.UserID,
@@ -54,6 +59,8 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		UpvoteNumber:   0,
 		ReportNumber:   0,
 		FollowedNumber: 0,
+		ShortID:        shortID,
+		Slug:           utils.Slugify(request.Title),
 
 		IsActive:  true,
 		CreatedBy: request.UserID,
@@ -166,6 +173,7 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 
 	if request.Title != "" {
 		threadPayload.Title = request.Title
+		threadPayload.Slug = utils.Slugify(request.Title)
 	}
 
 	if request.Description != "" {
@@ -363,6 +371,7 @@ func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetL
 		ReportNumber:   tempThread.Thread.ReportNumber,
 		FollowedNumber: tempThread.Thread.FollowedNumber,
 		Deadline:       tempThread.Thread.Deadline,
+		Slug:           tempThread.Thread.Slug,
 		IsReported:     tempThread.IsReported,
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsActive:       tempThread.Thread.IsActive,
@@ -382,6 +391,12 @@ func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailT
 
 	tempThread, err := u.threadRepo.GetDetail(ctx, request)
 
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return response, errors.New("There is no thread with this ID")
+		}
+	}
+
 	response = mapTempToResDetail(tempThread)
 
 	return
@@ -397,6 +412,7 @@ func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.Get
 		ReportNumber:   tempThread.Thread.ReportNumber,
 		FollowedNumber: tempThread.Thread.FollowedNumber,
 		Deadline:       tempThread.Thread.Deadline,
+		Slug:           tempThread.Thread.Slug,
 		IsReported:     tempThread.IsReported,
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsActive:       tempThread.Thread.IsActive,
@@ -447,5 +463,31 @@ func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteT
 	}
 
 	err = u.threadRepo.UpvoteThread(ctx, contentReportPayload)
+	return
+}
+
+func (u *threadUsecase) ShareThread(c context.Context, request *request.ShareThreadReq) (res response.ShareThreadRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	var shareEventPayload *entity.ShareEvent
+	shareEventPayload = &entity.ShareEvent{
+		ID:        uuid.NewString(),
+		UserID:    request.UserID,
+		ThreadID:  request.ID,
+		Action:    "SHARE",
+		Counter:   1,
+		CreatedAt: time.Now().Unix(),
+		CreatedBy: request.UserID,
+		UpdatedAt: time.Now().Unix(),
+	}
+
+	var t *entity.Thread
+	t, err = u.threadRepo.ShareThread(ctx, request, shareEventPayload)
+	if err != nil {
+		return
+	}
+
+	res.URL = fmt.Sprintf("%s/t/%s", config.LoadConfig().BaseURLPrakarsa, t.ShortID)
 	return
 }
