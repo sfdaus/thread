@@ -9,4 +9,10 @@ service:
   type: ClusterIP
   port: 80
 
+ingress:
+  enabled: true
+  hostname: "no-middleware-dev-api.prakarsa.id"
+  certResolver: le
+  className: traefik
+
 secretName: threads-env
