@@ -18,3 +18,9 @@
 # vendor/
 
 .env
+
+.DS_Store
+*/.DS_Store
+.DS_Store/*
+
+repository/.DS_Store

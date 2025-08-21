@@ -1,143 +1,105 @@
-name: build-and-deploy
+name: Deploy Threads via Helm
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+
+    env:
+      NAMESPACE: prakarsa
+      RELEASE: threads
+      CHART_PATH: ./helm
+      IMAGE_REPO: ghcr.io/sfdaus/threads
+      IMAGE: ghcr.io/sfdaus/threads:${{ github.sha }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set lowercase owner
-        id: vars
-        run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ steps.vars.outputs.owner_lc }}/threads
-          tags: |
-            type=raw,value=latest
-            type=sha,format=long,prefix=
-
-      - name: Login GHCR
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push
-        uses: docker/build-push-action@v6
+      - name: Build & Push Docker image
+        uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags:   ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ghcr.io/sfdaus/threads:${{ github.sha }}
 
-      - name: Copy k8s manifests to VPS
-        uses: appleboy/scp-action@v0.1.7
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "k8s/*"
-          target: "threads"
+          version: v1.30.0
 
-      - name: Deploy on VPS via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Create/Update GHCR imagePullSecret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --namespace=prakarsa \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Prepare SSH key
+        run: |
+          echo "${{ secrets.SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Recreate Secret from server file
         env:
-          GHCR_PAT: ${{ secrets.GHCR_PAT }}   # optional fallback
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            set -Eeuo pipefail
-            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          SSH="ssh -o StrictHostKeyChecking=no -i key.pem ${SSH_USER}@${SSH_HOST}"
 
-            NS=prakarsa
-            APP=threads
-            OWNER="${{ steps.vars.outputs.owner_lc }}"
-            TAG="${{ github.sha }}"
-            IMAGE="ghcr.io/${OWNER}/${APP}:${TAG}"
+          # pastikan file env ada di server (format KEY=VALUE, meski namanya .yaml)
+          $SSH 'test -f /home/prakarsa/secrets/threads-env.yaml'
 
-            # === ambil PAT dari secret threads-env (key: GITHUB_TOKEN). fallback: GHCR_PAT dari Actions ===
-            PAT=$(kubectl -n $NS get secret threads-env -o jsonpath='{.data.GITHUB_TOKEN}' 2>/dev/null | base64 -d || true)
-            [ -z "$PAT" ] && PAT="${GHCR_PAT:-}"
-            if [ -z "$PAT" ]; then
-              echo "FATAL: tidak menemukan PAT di secret 'threads-env' (key GITHUB_TOKEN) maupun secrets.GHCR_PAT"; exit 1
-            fi
+          # buat Secret YAML di SERVER, lalu apply ke cluster dari SERVER
+          $SSH 'kubectl -n '"$NAMESPACE"' delete secret threads-env --ignore-not-found'
+          $SSH 'kubectl -n '"$NAMESPACE"' create secret generic threads-env \
+                --from-env-file=/home/prakarsa/secrets/threads-env.yaml \
+                --dry-run=client -o yaml | kubectl apply -f -'
 
-            # === upsert imagePullSecret untuk GHCR ===
-            kubectl -n $NS create secret docker-registry ghcr-login \
-              --docker-server=ghcr.io \
-              --docker-username="${OWNER}" \
-              --docker-password="${PAT}" \
-              --docker-email="-" \
-              --dry-run=client -o yaml | kubectl apply -f -
+          # opsional: echo ringkas tanpa bocorkan value
+          echo "threads-env secret recreated from /home/prakarsa/secrets/threads-env.yaml"
 
-            # === APPLY MANIFESTS DULU (create Deployment) ===
-            # kalau kamu pakai kustomize, ganti: kubectl -n $NS apply -k ~/threads/k8s/
-            kubectl -n $NS apply -f ~/threads/k8s/
+      - name: Deploy via Helm
+        run: |
+          kubectl cluster-info
 
-            # pastikan deployment 'threads' memang ada
-            if ! kubectl -n $NS get deploy/$APP >/dev/null 2>&1; then
-              echo "FATAL: setelah apply, deployment '$APP' tetap tidak ada. Cek metadata.name di k8s/deployment.yaml"; 
-              kubectl -n $NS get deploy -o wide; exit 1
-            fi
+          helm upgrade --install $RELEASE $CHART_PATH \
+            --namespace $NAMESPACE \
+            --create-namespace \
+            --set image.repository="${IMAGE_REPO}" \
+            --set image.tag=${{ github.sha }} \
+            --set secretName="threads-env" \
+            --wait \
+            --timeout=300s
 
-            # === patch imagePullSecrets pada template pod (add/replace idempotent) ===
-            kubectl -n $NS patch deploy/$APP --type=json -p='[
-              {"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-login"}]}
-            ]' || kubectl -n $NS patch deploy/$APP --type=json -p='[
-              {"op":"replace","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-login"}]}
-            ]'
+      - name: Verify Rollout
+        run: |
+          kubectl -n $NAMESPACE rollout status deploy/${RELEASE}
+          kubectl -n $NAMESPACE get pods,svc,ingress -l app.kubernetes.io/name=${RELEASE} -o wide
 
-            # === set image ke FULL SHA untuk trigger rollout ===
-            kubectl -n $NS set image deploy/$APP $APP=$IMAGE --record
-
-            # === tunggu Ready & guard ErrImagePull ===
-            if ! kubectl -n $NS wait deploy/$APP --for=condition=available --timeout=600s; then
-              kubectl -n $NS get pods -l app=$APP -o wide
-              POD=$(kubectl -n $NS get pods -l app=$APP --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].0.metadata.name}')
-              kubectl -n $NS describe pod "$POD" | sed -n '/Events/,$p' || true
-              exit 1
-            fi
-            POD=$(kubectl -n $NS get pods -l app=$APP --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].0.metadata.name}')
-            REASON=$(kubectl -n $NS get pod "$POD" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || true)
-            if [ "$REASON" = "ImagePullBackOff" ] || [ "$REASON" = "ErrImagePull" ]; then
-              echo "New pod cannot pull $IMAGE"
-              kubectl -n $NS describe pod "$POD" | sed -n '/Events/,$p' || true
-              exit 1
-            fi
-
-            # === prune ReplicaSet lama (keep 2) ===
-            kubectl -n $NS get rs -l app=$APP --sort-by=.metadata.creationTimestamp \
-              -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.replicas}{"\n"}{end}' \
-            | awk '$2==0{print $1}' | head -n -2 | xargs -r kubectl -n $NS delete rs
-
-            # === prune images di node (keep 2 terakhir) ===
-            IMAGES_SORTED=$(kubectl -n $NS get rs -l app=$APP \
-              -o jsonpath='{range .items[*]}{.metadata.creationTimestamp}{" "}{.spec.template.spec.containers[0].image}{"\n"}{end}' | sort)
-            KEEP1=$(echo "$IMAGES_SORTED" | tail -n1 | awk '{print $2}')
-            KEEP2=$(echo "$IMAGES_SORTED" | tail -n2 | head -n1 | awk '{print $2}')
-            for IMG in $(sudo ctr -n k8s.io images ls | awk -v r="ghcr.io/${OWNER}/${APP}" '$1 ~ r {print $1}'); do
-              if [ "$IMG" != "$KEEP1" ] && [ "$IMG" != "$KEEP2" ]; then
-                sudo ctr -n k8s.io images rm "$IMG" || true
-              fi
-            done
-
-            # === sanity: pastikan cuma 1 pod Ready ===
-            READY=$(kubectl -n $NS get pods -l app=$APP -o jsonpath='{range .items[*]}{.status.containerStatuses[0].ready}{"\n"}{end}' | grep -c '^true$' || true)
-            if [ "$READY" -ne 1 ]; then
-              kubectl -n $NS get pods -l app=$APP -o wide
-              echo "Expected exactly 1 Ready pod; found $READY"; exit 1
-            fi
-            echo "Deploy OK → 1 pod Ready; kept images: $KEEP1 , $KEEP2"
+          echo "Deployment completed with SHA: ${{ github.sha }}"
