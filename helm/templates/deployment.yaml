@@ -28,11 +28,15 @@ spec:
             - secretRef:
                 name: {{ .Values.secretName | default (printf "%s-env" .Chart.Name) }}
           readinessProbe:
-            httpGet: { path: /healthz, port: 8080 }
+            httpGet:
+              path: /
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
-            httpGet: { path: /healthz, port: 8080 }
+            httpGet:
+              path: /
+              port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
 
