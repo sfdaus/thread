@@ -14,7 +14,7 @@ spec:
     - host: {{ .Values.ingress.hostname }}
       http:
         paths:
-          - path: /
+          - path: /v1/api/threads
             pathType: Prefix
             backend:
               service:
