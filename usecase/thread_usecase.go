@@ -61,14 +61,13 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		FollowedNumber: 0,
 		ShortID:        shortID,
 		Slug:           utils.Slugify(request.Title),
-
-		IsActive:  true,
-		CreatedBy: request.UserID,
-		CreatedAt: time.Now().Unix(),
+		IsActive:       true,
+		CreatedBy:      request.UserID,
+		CreatedAt:      time.Now().Unix(),
 	}
 
 	if request.Deadline != "" {
-		deadline, parseErr := time.Parse("02-01-2006", request.Deadline)
+		deadline, parseErr := time.Parse("2006-01-02", request.Deadline)
 		if parseErr != nil {
 			return res, parseErr
 		}
@@ -185,7 +184,7 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 	}
 
 	if request.Deadline != "" {
-		deadline, parseErr := time.Parse("02-01-2006", request.Deadline)
+		deadline, parseErr := time.Parse("2006-01-02", request.Deadline)
 		if parseErr != nil {
 			return parseErr
 		}
