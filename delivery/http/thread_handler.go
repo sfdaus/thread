@@ -24,13 +24,13 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	}
 
 	apiV1 := e.Group("/api/v1")
+	apiV1.POST("/threads/:id/report", handler.ReportThread)
+	apiV1.POST("/threads/:id/upvote", handler.UpvoteThread)
 	apiV1.POST("/threads", handler.Create)
 	apiV1.PATCH("/threads/:id", handler.Update)
 	apiV1.DELETE("/threads/:id", handler.Delete)
 	apiV1.GET("/threads", handler.GetList)
 	apiV1.GET("/threads/:id", handler.GetDetail)
-	apiV1.POST("/threads/:id/report", handler.ReportThread)
-	apiV1.POST("/threads/:id/upvote", handler.UpvoteThread)
 	apiV1.GET("/threads/share-url/:id", handler.ShareThread)
 	// TODO : apiV1.GET("/threads/my-threads", handler.ShareThread)
 	// TODO : apiV1.GET("/threads/detail-shared/:id", handler.GetDetailShared)
