@@ -23,6 +23,7 @@ type GetListThreadRes struct {
 	IsReported     bool                       `json:"is_reported"`
 	IsUpvoted      bool                       `json:"is_upvoted"`
 	IsActive       bool                       `json:"is_active"`
+	IsOwner        bool                       `json:"is_owner"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
 	Profile        entity.Profile             `json:"profile"`
@@ -36,6 +37,7 @@ type GetListThreadTempRes struct {
 	Thread       entity.Thread              `json:"thread"`
 	IsReported   bool                       `json:"is_reported"`
 	IsUpvoted    bool                       `json:"is_upvoted"`
+	IsOwner      bool                       `json:"is_owner"`
 	Attachments  []entity.SecureAttachment  `json:"attachments"`
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
@@ -57,6 +59,7 @@ type GetDetailThreadRes struct {
 	IsReported     bool                       `json:"is_reported"`
 	IsUpvoted      bool                       `json:"is_upvoted"`
 	IsActive       bool                       `json:"is_active"`
+	IsOwner        bool                       `json:"is_owner"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
 	Profile        entity.Profile             `json:"profile"`
@@ -70,6 +73,7 @@ type GetDetailThreadTempRes struct {
 	Thread       entity.Thread              `json:"thread"`
 	IsReported   bool                       `json:"is_reported"`
 	IsUpvoted    bool                       `json:"is_upvoted"`
+	IsOwner      bool                       `json:"is_owner"`
 	Attachments  []entity.SecureAttachment  `json:"attachments"`
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`

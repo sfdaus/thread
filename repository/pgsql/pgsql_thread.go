@@ -398,7 +398,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
-	`, request.UserID, request.UserID)
+	(t.user_id = '%s') AS is_owner,
+	`, request.UserID, request.UserID, request.UserID)
 
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
@@ -560,8 +561,10 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	defer rows.Close()
 	type listRow struct {
 		entity.Thread
-		IsReported    bool
-		IsUpvoted     bool
+		IsReported bool
+		IsUpvoted  bool
+		IsOwner    bool
+
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
@@ -590,7 +593,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -624,6 +627,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		out.Thread = rrow.Thread
 		out.IsUpvoted = rrow.IsUpvoted
 		out.IsReported = rrow.IsReported
+		out.IsOwner = rrow.IsOwner
 		out.Profile = entity.Profile{
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
@@ -675,6 +679,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
+	(t.user_id = '%s') AS is_owner,
 
 	-- profile (1-1)
 	COALESCE(p.name,'')        AS prof_name,
@@ -768,13 +773,14 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 
 	WHERE t.id = $1
 	LIMIT 1
-	`, request.UserID, request.UserID)
+	`, request.UserID, request.UserID, request.UserID)
 
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
 		IsReported bool
 		IsUpvoted  bool
+		IsOwner    bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -804,7 +810,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
-		&row.IsUpvoted, &row.IsReported,
+		&row.IsUpvoted, &row.IsReported, &row.IsOwner,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
@@ -834,6 +840,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	res.Thread = row.Thread
 	res.IsUpvoted = row.IsUpvoted
 	res.IsReported = row.IsReported
+	res.IsOwner = row.IsOwner
 	res.Profile = entity.Profile{
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
