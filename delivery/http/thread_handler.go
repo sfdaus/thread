@@ -32,6 +32,8 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.POST("/threads/report/:id", handler.ReportThread)
 	apiV1.POST("/threads/upvote/:id", handler.UpvoteThread)
 	apiV1.GET("/threads/share-url/:id", handler.ShareThread)
+	// TODO : apiV1.GET("/threads/my-threads", handler.ShareThread)
+	// TODO : apiV1.GET("/threads/detail-shared/:id", handler.GetDetailShared)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
