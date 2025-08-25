@@ -266,13 +266,10 @@ func (h *ThreadHandler) ReportThread(c echo.Context) error {
 
 func (h *ThreadHandler) UpvoteThread(c echo.Context) error {
 	ctx := c.Request().Context()
-	var req request.UpvoteThreadReq
-
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	var req = request.UpvoteThreadReq{
+		ID:     c.Param("id"),
+		UserID: c.Request().Header.Get("x-user-id"),
 	}
-
-	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
