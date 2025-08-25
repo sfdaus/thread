@@ -174,3 +174,20 @@ func (request ShareThreadReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Get My Thread request body
+type GetMyThreadReq struct {
+	UserID   string
+	Title    string `query:"title"`
+	Status   string `query:"status"`
+	IsActive *bool  `query:"is_active"`
+	PerPage  int64  `query:"per_page"`
+	Page     int64  `query:"page"`
+}
+
+func (request GetMyThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
