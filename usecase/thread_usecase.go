@@ -492,3 +492,44 @@ func (u *threadUsecase) ShareThread(c context.Context, request *request.ShareThr
 	res.URL = fmt.Sprintf("%s/t/%s", config.LoadConfig().BaseURLPrakarsa, t.ShortID)
 	return
 }
+
+func (u *threadUsecase) GetMyThread(c context.Context, request *request.GetMyThreadReq) (threads []response.GetMyThreadRes, meta response.MetaRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	tempThreads, meta, err := u.threadRepo.GetMyThread(ctx, request)
+
+	if len(tempThreads) > 0 {
+		for _, temp := range tempThreads {
+			threads = append(threads, mapTempToResGetMyThread(temp))
+		}
+	}
+
+	return
+}
+func mapTempToResGetMyThread(tempThread response.GetMyThreadTempRes) response.GetMyThreadRes {
+	res := response.GetMyThreadRes{
+		ID:             tempThread.Thread.ID,
+		Title:          tempThread.Thread.Title,
+		Type:           tempThread.Thread.Type,
+		Description:    tempThread.Thread.Description,
+		Status:         tempThread.Thread.Status,
+		UpvoteNumber:   tempThread.Thread.UpvoteNumber,
+		ReportNumber:   tempThread.Thread.ReportNumber,
+		FollowedNumber: tempThread.Thread.FollowedNumber,
+		Deadline:       tempThread.Thread.Deadline,
+		Slug:           tempThread.Thread.Slug,
+		IsReported:     tempThread.IsReported,
+		IsUpvoted:      tempThread.IsUpvoted,
+		IsOwner:        tempThread.IsOwner,
+		IsActive:       tempThread.Thread.IsActive,
+		CreatedAt:      tempThread.Thread.CreatedAt,
+		UpdatedAt:      tempThread.Thread.UpdatedAt,
+	}
+	res.Tags = tempThread.Tags
+	res.Attachments = tempThread.Attachments
+	res.Institutions = tempThread.Institutions
+	res.PartnerTypes = tempThread.PartnerTypes
+	res.Profile = tempThread.Profile
+	return res
+}
