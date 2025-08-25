@@ -471,25 +471,36 @@ func (u *threadUsecase) ShareThread(c context.Context, request *request.ShareThr
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
 
+	shortID, err := utils.GenerateShortURL(3)
+
 	var shareEventPayload *entity.ShareEvent
 	shareEventPayload = &entity.ShareEvent{
-		ID:        uuid.NewString(),
-		UserID:    request.UserID,
-		ThreadID:  request.ID,
-		Action:    "SHARE",
-		Counter:   1,
-		CreatedAt: time.Now().Unix(),
-		CreatedBy: request.UserID,
-		UpdatedAt: time.Now().Unix(),
+		ID:              uuid.NewString(),
+		UserID:          request.UserID,
+		ThreadID:        request.ID,
+		Action:          "SHARE",
+		Counter:         1,
+		ShortIdentifier: shortID,
+		CreatedAt:       time.Now().Unix(),
+		CreatedBy:       request.UserID,
+		UpdatedAt:       time.Now().Unix(),
 	}
 
 	var t *entity.Thread
-	t, err = u.threadRepo.ShareThread(ctx, request, shareEventPayload)
+	var uniqueID string
+
+	t, uniqueID, err = u.threadRepo.ShareThread(ctx, request, shareEventPayload)
+
 	if err != nil {
 		return
 	}
 
-	res.URL = fmt.Sprintf("%s/t/%s", config.LoadConfig().BaseURLPrakarsa, t.ShortID)
+	if uniqueID == "" {
+		uniqueID = shortID
+	}
+
+	res.URL = fmt.Sprintf("%s/t/%s-%s", config.LoadConfig().BaseURLPrakarsa, t.ShortID, uniqueID)
+
 	return
 }
 
@@ -509,6 +520,49 @@ func (u *threadUsecase) GetMyThread(c context.Context, request *request.GetMyThr
 }
 func mapTempToResGetMyThread(tempThread response.GetMyThreadTempRes) response.GetMyThreadRes {
 	res := response.GetMyThreadRes{
+		ID:             tempThread.Thread.ID,
+		Title:          tempThread.Thread.Title,
+		Type:           tempThread.Thread.Type,
+		Description:    tempThread.Thread.Description,
+		Status:         tempThread.Thread.Status,
+		UpvoteNumber:   tempThread.Thread.UpvoteNumber,
+		ReportNumber:   tempThread.Thread.ReportNumber,
+		FollowedNumber: tempThread.Thread.FollowedNumber,
+		Deadline:       tempThread.Thread.Deadline,
+		Slug:           tempThread.Thread.Slug,
+		IsReported:     tempThread.IsReported,
+		IsUpvoted:      tempThread.IsUpvoted,
+		IsOwner:        tempThread.IsOwner,
+		IsActive:       tempThread.Thread.IsActive,
+		CreatedAt:      tempThread.Thread.CreatedAt,
+		UpdatedAt:      tempThread.Thread.UpdatedAt,
+	}
+	res.Tags = tempThread.Tags
+	res.Attachments = tempThread.Attachments
+	res.Institutions = tempThread.Institutions
+	res.PartnerTypes = tempThread.PartnerTypes
+	res.Profile = tempThread.Profile
+	return res
+}
+
+func (u *threadUsecase) GetDetailShared(c context.Context, request *request.GetDetailSharedReq) (response response.GetDetailSharedRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	tempThread, err := u.threadRepo.GetDetailShared(ctx, request)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return response, errors.New("There is no thread with this Code")
+		}
+	}
+
+	response = mapTempToResDetailShared(tempThread)
+
+	return
+}
+func mapTempToResDetailShared(tempThread response.GetDetailSharedTempRes) response.GetDetailSharedRes {
+	res := response.GetDetailSharedRes{
 		ID:             tempThread.Thread.ID,
 		Title:          tempThread.Thread.Title,
 		Type:           tempThread.Thread.Type,
