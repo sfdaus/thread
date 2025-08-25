@@ -19,8 +19,9 @@ type ThreadRepository interface {
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadTempRes, error)
 	ReportThread(ctx context.Context, contentReport *entity.ContentReport) error
 	UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote) error
-	ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (*entity.Thread, error)
+	ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (*entity.Thread, string, error)
 	GetMyThread(ctx context.Context, request *request.GetMyThreadReq) ([]response.GetMyThreadTempRes, response.MetaRes, error)
+	GetDetailShared(ctx context.Context, request *request.GetDetailSharedReq) (response.GetDetailSharedTempRes, error)
 }
 
 // ThreadUsecase represent the todos usecase contract
@@ -34,4 +35,5 @@ type ThreadUsecase interface {
 	UpvoteThread(ctx context.Context, request *request.UpvoteThreadReq) error
 	ShareThread(ctx context.Context, request *request.ShareThreadReq) (response.ShareThreadRes, error)
 	GetMyThread(ctx context.Context, request *request.GetMyThreadReq) ([]response.GetMyThreadRes, response.MetaRes, error)
+	GetDetailShared(ctx context.Context, request *request.GetDetailSharedReq) (response.GetDetailSharedRes, error)
 }

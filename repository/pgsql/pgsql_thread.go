@@ -890,11 +890,11 @@ func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote 
 	return
 }
 
-func (r *pgsqlThreadRepository) ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (thread *entity.Thread, err error) {
+func (r *pgsqlThreadRepository) ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (thread *entity.Thread, shareRelShortID string, err error) {
 	// Mulai transaction
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Pastikan rollback kalau ada error
@@ -923,33 +923,35 @@ func (r *pgsqlThreadRepository) ShareThread(ctx context.Context, request *reques
 	err = tx.QueryRowContext(ctx, q, request.ID).
 		Scan(&t.ID, &t.Title, &shortID, &slug)
 	if err == sql.ErrNoRows {
-		return nil, utils.NewNotFoundError("Thread not found")
+		return nil, "", utils.NewNotFoundError("Thread not found")
 	} else if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	t.Slug = slug.String
 	t.ShortID = shortID.String
 
 	// Insert Log Share
-	const insertQ = `INSERT INTO share_events (id, thread_id, user_id, action, counter, created_by, created_at, updated_at) 
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	const insertQ = `INSERT INTO share_events (id, thread_id, user_id, action, counter, short_identifier, created_by, created_at, updated_at) 
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 					ON CONFLICT (thread_id, user_id) 
 					DO UPDATE 
 					SET
 					counter=share_events.counter + 1,
 					updated_at=EXCLUDED.updated_at,
-				  	updated_by=EXCLUDED.created_by`
-
-	if _, err = tx.ExecContext(ctx, insertQ, shareEvent.ID, shareEvent.ThreadID, shareEvent.UserID, shareEvent.Action,
-		shareEvent.Counter, shareEvent.CreatedBy, shareEvent.CreatedAt, shareEvent.UpdatedAt); err != nil {
-		return nil, err
+				  	updated_by=EXCLUDED.created_by
+				  	RETURNING share_events.short_identifier;
+				  	`
+	if err = tx.QueryRowContext(ctx, insertQ, shareEvent.ID, shareEvent.ThreadID, shareEvent.UserID, shareEvent.Action,
+		shareEvent.Counter, shareEvent.ShortIdentifier, shareEvent.CreatedBy, shareEvent.CreatedAt, shareEvent.UpdatedAt).Scan(&shareRelShortID); err != nil {
+		return nil, "", err
 	}
 
 	if err = tx.Commit(); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return t, nil
+
+	return t, shareRelShortID, nil
 }
 
 func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *request.GetMyThreadReq) (threads []response.GetMyThreadTempRes, meta response.MetaRes, err error) {
@@ -1237,4 +1239,260 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		return nil, meta, err
 	}
 	return
+}
+
+func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *request.GetDetailSharedReq) (res response.GetDetailSharedTempRes, err error) {
+	var addedQuery string
+
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if request.Code == "" {
+		return res, fmt.Errorf("code is required")
+	}
+
+	splittedCode := strings.Split(request.Code, "-")
+
+	if request.UserID != "" {
+		addedQuery = fmt.Sprintf(`					
+				(SELECT EXISTS (
+					SELECT 1 FROM content_likes clx
+					WHERE clx.thread_id = t.id AND clx.user_id = '%s' AND coalesce(clx.is_active, true)
+				)) AS is_upvoted,
+				(SELECT EXISTS (
+					SELECT 1 FROM content_reports crx
+					WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
+				)) AS is_reported,
+				(t.user_id = '%s') AS is_owner,
+				`, request.UserID, request.UserID, request.UserID)
+	} else {
+		addedQuery = `
+					false AS is_upvoted,
+					false AS is_reported,
+					false AS is_owner,
+					`
+	}
+
+	query := fmt.Sprintf(`SELECT
+			-- thread
+			t.id, t.user_id, t.title, t.type, t.description, t.status,
+			t.upvote_number, t.report_number, t.followed_number, t.deadline, t.slug,
+			t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+			
+    		%s
+			
+			-- profile (1-1)
+			COALESCE(p.name,'')        AS prof_name,
+			COALESCE(p.name_alias,'')  AS prof_name_alias,
+			COALESCE(p.avatar,'') AS prof_avatar,
+		
+			-- institution inside profile
+			COALESCE(i.name,'')  AS prof_inst_name,
+			COALESCE(i.alias,'') AS prof_inst_alias,   -- hapus baris ini kalau kolom alias belum ada di DB
+			COALESCE(i.type,'')  AS prof_inst_type,
+		
+			-- aggregates
+			COALESCE(ja.attachments,'[]'::jsonb)   AS attachments,
+			COALESCE(jtg.tags,'[]'::jsonb)         AS tags,
+			COALESCE(jpt.partner_types,'[]'::jsonb) AS partner_types,
+			COALESCE(ji.institutions,'[]'::jsonb)  AS institutions
+			FROM threads t
+			LEFT JOIN profiles p     ON p.user_id = t.user_id
+			LEFT JOIN institutions i ON i.id = p.institution_id
+		
+			-- attachments
+			LEFT JOIN LATERAL (
+				SELECT jsonb_agg(
+						jsonb_build_object(
+						'id', ta.id,
+						'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
+						'is_active', ta.is_active, 'created_at', ta.created_at,
+						'updated_at', ta.updated_at
+						) ORDER BY ta.created_at DESC
+					) AS attachments
+				FROM thread_attachments ta
+				WHERE ta.thread_id = t.id AND ta.is_active = true
+			) ja ON true
+		
+			-- tags
+			LEFT JOIN LATERAL (
+				SELECT jsonb_agg(
+						jsonb_build_object(
+						'id', tg.id,
+						'name', tg.name,
+						'description', tg.description,
+						'is_active', tt.is_active, 'created_at', tt.created_at,
+						'updated_at', tt.updated_at
+						) ORDER BY tg.name
+					) AS tags
+				FROM thread_tags tt
+				JOIN tags tg ON tg.id = tt.tag_id
+				WHERE tt.thread_id = t.id AND tt.is_active = true
+			) jtg ON true
+		
+			-- partner types
+			LEFT JOIN LATERAL (
+				SELECT jsonb_agg(
+						jsonb_build_object(
+						'id', tpt.id,
+						'name', pt.name,
+						'compensation_type', ct.name,
+						'compensation_value', tpt.compensation_value,
+						'compensation_currency', tpt.compensation_currency,
+						'compensation_period', tpt.compensation_period,
+						'compensation_note', tpt.compensation_note,
+						'amount_needed', tpt.amount_needed,
+						'amount_fulfilled', tpt.amount_fulfilled,
+						'is_active', tpt.is_active,
+						'created_at', tpt.created_at,
+						'updated_at', tpt.updated_at
+						) ORDER BY pt.name
+					) AS partner_types
+				FROM thread_partner_types tpt
+				JOIN partner_types pt ON pt.id = tpt.partner_type_id
+				LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type
+				WHERE tpt.thread_id = t.id AND tpt.is_active = true
+			) jpt ON true
+		
+			-- institutions on thread
+			LEFT JOIN LATERAL (
+				SELECT jsonb_agg(
+						jsonb_build_object(
+						'id', i2.id,
+						'name', i2.name,
+						'alias', i2.alias,
+						'type', i2.type,
+						'is_active', ti.is_active, 'created_at', ti.created_at,
+						'updated_at', ti.updated_at
+						) ORDER BY i2.name
+					) AS institutions
+				FROM thread_institutions ti
+				JOIN institutions i2 ON i2.id = ti.institution_id
+				WHERE ti.thread_id = t.id AND ti.is_active = true
+			) ji ON true
+		
+			WHERE t.short_id = $1
+			LIMIT 1
+			`, addedQuery)
+
+	// struct holder untuk scan
+	type rowStruct struct {
+		entity.Thread
+		IsReported bool
+		IsUpvoted  bool
+		IsOwner    bool
+
+		ProfName      string
+		ProfNameAlias string
+		ProfAvatar    string
+		ProfInstName  string
+		ProfInstAlias string
+		ProfInstType  string
+
+		AttachmentsJSON  []byte
+		TagsJSON         []byte
+		PartnerTypesJSON []byte
+		InstitutionsJSON []byte
+	}
+
+	var row rowStruct
+
+	// nullable holders
+	var (
+		deadlineNT  sql.NullTime
+		updatedByNS sql.NullString
+		updatedAtNT sql.NullInt64
+		deletedAtNT sql.NullInt64
+	)
+
+	sc := tx.QueryRowContext(ctx, query, splittedCode[0])
+	if err = sc.Scan(
+		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
+		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
+		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
+		&row.IsUpvoted, &row.IsReported, &row.IsOwner,
+		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
+		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
+		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
+	); err != nil {
+		// preferred: propagate sql.ErrNoRows; kalau mau custom NotFound, map di layer di atas.
+		if errors.Is(err, sql.ErrNoRows) {
+			return res, errors.New("Thread not found")
+		}
+		return res, err
+	}
+
+	// map nullable → entity.Thread
+	if deadlineNT.Valid {
+		row.Deadline = &deadlineNT.Time
+	}
+	if updatedByNS.Valid {
+		row.UpdatedBy = updatedByNS.String
+	}
+	if updatedAtNT.Valid {
+		row.UpdatedAt = updatedAtNT.Int64
+	}
+	if deletedAtNT.Valid {
+		row.DeletedAt = deletedAtNT.Int64
+	}
+
+	// build response
+	res.Thread = row.Thread
+	res.IsUpvoted = row.IsUpvoted
+	res.IsReported = row.IsReported
+	res.IsOwner = row.IsOwner
+	res.Profile = entity.Profile{
+		Name:      row.ProfName,
+		NameAlias: row.ProfNameAlias,
+		Avatar:    row.ProfAvatar,
+		Institution: entity.Institution{
+			Name:  row.ProfInstName,
+			Alias: row.ProfInstAlias,
+			Type:  row.ProfInstType,
+		},
+	}
+
+	if err := json.Unmarshal(row.AttachmentsJSON, &res.Attachments); err != nil {
+		return res, err
+	}
+	if err := json.Unmarshal(row.TagsJSON, &res.Tags); err != nil {
+		return res, err
+	}
+	if err := json.Unmarshal(row.PartnerTypesJSON, &res.PartnerTypes); err != nil {
+		return res, err
+	}
+	if err := json.Unmarshal(row.InstitutionsJSON, &res.Institutions); err != nil {
+		return res, err
+	}
+
+	/*
+		Update Shared Link Clicked
+	*/
+	query = `
+			UPDATE share_events
+			SET
+			    opened_url_counter = COALESCE(opened_url_counter, 0) + 1
+			WHERE
+				short_identifier = $1 AND thread_id = $2
+			`
+	if _, err = tx.ExecContext(ctx, query, splittedCode[1], res.Thread.ID); err != nil {
+		return
+	}
+
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
+		return
+	}
+
+	return res, nil
 }

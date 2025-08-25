@@ -191,3 +191,16 @@ func (request GetMyThreadReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Get Shared Thread request body
+type GetDetailSharedReq struct {
+	Code   string `param:"code"`
+	UserID string
+}
+
+func (request GetDetailSharedReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.Code, validation.Required),
+	)
+}

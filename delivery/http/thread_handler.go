@@ -33,7 +33,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.GET("/threads/:id", handler.GetDetail)
 	apiV1.GET("/threads/share-url/:id", handler.ShareThread)
 	apiV1.GET("/threads/mine", handler.GetMyThread)
-	// TODO : apiV1.GET("/threads/detail-shared/:id", handler.GetDetailShared)
+	apiV1.GET("/threads/shares/:code", handler.GetDetailShared)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -334,6 +334,28 @@ func (h *ThreadHandler) GetMyThread(c echo.Context) error {
 			"message": "Thread successfully retrieved",
 			"data":    res,
 			"meta":    meta,
+		})
+	}
+}
+
+func (h *ThreadHandler) GetDetailShared(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req = request.GetDetailSharedReq{
+		Code:   c.Param("code"),
+		UserID: c.Request().Header.Get("x-user-id"),
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if res, err := h.ThreadUC.GetDetailShared(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Detail Failed"))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread successfully retrieved",
+			"data":    res,
 		})
 	}
 }
