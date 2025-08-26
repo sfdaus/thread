@@ -520,6 +520,14 @@ func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteT
 	return
 }
 
+func (u *threadUsecase) UnvoteThread(c context.Context, request *request.UnvoteThreadReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	err = u.threadRepo.UnvoteThread(ctx, request)
+	return
+}
+
 func (u *threadUsecase) ShareThread(c context.Context, request *request.ShareThreadReq) (res response.ShareThreadRes, err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()

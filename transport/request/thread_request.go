@@ -161,6 +161,20 @@ func (request UpvoteThreadReq) Validate() error {
 	)
 }
 
+// Unvote Thread request body
+type UnvoteThreadReq struct {
+	ID     string `param:"id"`
+	UserID string
+}
+
+func (request UnvoteThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
+
 // Share Thread request body
 type ShareThreadReq struct {
 	ID     string `param:"id"`

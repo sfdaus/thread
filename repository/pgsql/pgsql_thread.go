@@ -914,6 +914,17 @@ func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote 
 	return
 }
 
+func (r *pgsqlThreadRepository) UnvoteThread(ctx context.Context, request *request.UnvoteThreadReq) (err error) {
+	query := `DELETE FROM content_likes WHERE thread_id = $1 AND user_id = $2;`
+	if res, err := r.db.ExecContext(ctx, query, request.ID, request.UserID); err != nil {
+		return err
+	} else if affected, _ := res.RowsAffected(); affected == 0 {
+		return utils.NewNotFoundError("Thread status is not upvoted")
+	}
+
+	return
+}
+
 func (r *pgsqlThreadRepository) ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (thread *entity.Thread, shareRelShortID string, err error) {
 	// Mulai transaction
 	tx, err := r.db.BeginTx(ctx, nil)

@@ -26,6 +26,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1 := e.Group("/api/v1")
 	apiV1.POST("/threads/:id/report", handler.ReportThread)
 	apiV1.POST("/threads/:id/upvote", handler.UpvoteThread)
+	apiV1.DELETE("/threads/:id/upvote", handler.UnvoteThread)
 	apiV1.POST("/threads", handler.Create)
 	apiV1.PATCH("/threads/:id", handler.Update)
 	apiV1.DELETE("/threads/:id", handler.Delete)
@@ -285,6 +286,27 @@ func (h *ThreadHandler) UpvoteThread(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread upvote submitted",
+		})
+	}
+}
+
+func (h *ThreadHandler) UnvoteThread(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req = request.UnvoteThreadReq{
+		ID:     c.Param("id"),
+		UserID: c.Request().Header.Get("x-user-id"),
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if err := h.ThreadUC.UnvoteThread(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Unvote Thread Failed"))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread unvoted",
 		})
 	}
 }
