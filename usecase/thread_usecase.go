@@ -398,6 +398,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 		IsReported:     tempThread.IsReported,
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsOwner:        tempThread.IsOwner,
+		IsFollowing:    tempThread.IsFollowing,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -409,6 +410,9 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 
 	for _, attachment := range tempThread.Attachments {
 		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
 		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
@@ -426,7 +430,7 @@ func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailT
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return response, errors.New("There is no thread with this ID")
+			return response, utils.NewNotFoundError("There is no thread with this ID")
 		}
 	}
 
@@ -452,6 +456,7 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 		IsReported:     tempThread.IsReported,
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsOwner:        tempThread.IsOwner,
+		IsFollowing:    tempThread.IsFollowing,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -463,6 +468,9 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 
 	for _, attachment := range tempThread.Attachments {
 		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
 		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
@@ -582,6 +590,7 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 		IsReported:     tempThread.IsReported,
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsOwner:        tempThread.IsOwner,
+		IsFollowing:    tempThread.IsFollowing,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -593,6 +602,9 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 
 	for _, attachment := range tempThread.Attachments {
 		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
 		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
@@ -611,7 +623,7 @@ func (u *threadUsecase) GetDetailShared(c context.Context, request *request.GetD
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return response, errors.New("There is no thread with this Code")
+			return response, utils.NewNotFoundError("There is no thread with this Code")
 		}
 	}
 
@@ -637,6 +649,7 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 		IsReported:     tempThread.IsReported,
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsOwner:        tempThread.IsOwner,
+		IsFollowing:    tempThread.IsFollowing,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -648,6 +661,9 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 
 	for _, attachment := range tempThread.Attachments {
 		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
 		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
