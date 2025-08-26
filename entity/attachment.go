@@ -15,11 +15,12 @@ type Attachment struct {
 }
 
 type SecureAttachment struct {
-	ID        string `json:"id"`
-	FileName  string `json:"file_name"`
-	FileUrl   string `json:"file_url"`
-	FileType  string `json:"file_type"`
-	IsActive  bool   `json:"is_active"`
-	CreatedAt int64  `json:"created_at"`
-	UpdatedAt int64  `json:"updated_at"`
+	ID          string `json:"id"`
+	FileName    string `json:"file_name"`
+	FileUrl     string `json:"file_url"`
+	FileType    string `json:"file_type"`
+	DownloadUrl string `json:"download_url"`
+	IsActive    bool   `json:"is_active"`
+	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
 }

@@ -9,13 +9,13 @@ import (
 	"prakarsa-app/config"
 	"prakarsa-app/entity"
 	"prakarsa-app/utils"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 
 	"prakarsa-app/domain"
 	"prakarsa-app/repository/redis"
+	"prakarsa-app/repository/s3"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/transport/response"
 
@@ -25,14 +25,16 @@ import (
 type threadUsecase struct {
 	threadRepo domain.ThreadRepository
 	redisRepo  redis.RedisRepository
+	s3Repo     s3.S3Repository
 	ctxTimeout time.Duration
 }
 
 // NewThreadUsecase will create new an threadUsecase object representation of ThreadUsecase interface
-func NewThreadUsecase(threadRepo domain.ThreadRepository, redisRepo redis.RedisRepository, ctxTimeout time.Duration) *threadUsecase {
+func NewThreadUsecase(threadRepo domain.ThreadRepository, redisRepo redis.RedisRepository, s3Repo s3.S3Repository, ctxTimeout time.Duration) *threadUsecase {
 	return &threadUsecase{
 		threadRepo: threadRepo,
 		redisRepo:  redisRepo,
+		s3Repo:     s3Repo,
 		ctxTimeout: ctxTimeout,
 	}
 }
@@ -78,15 +80,24 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 	var threadAttachmentsPayload []*entity.Attachment
 	if len(request.Attachments) > 0 {
 		for _, attachment := range request.Attachments {
-			fileName := strings.Split(attachment.Filename, ".")[0]
 			mimeFromHeader := attachment.Header.Get("Content-Type")
+
+			/*
+				Upload File to s3
+			*/
+			fileURL, err := u.s3Repo.UploadFile(c, attachment, utils.ThreadFileName, utils.ThreadFilePath,
+				config.LoadConfig().S3Bucket)
+
+			if err != nil {
+				return res, err
+			}
 
 			attachmentPayload := &entity.Attachment{
 				ID:        uuid.NewString(),
 				ThreadID:  threadUUID,
-				FileName:  fileName,
+				FileName:  utils.ThreadFileName,
 				FileType:  mimeFromHeader,
-				FileUrl:   "TODO_file_url",
+				FileUrl:   fileURL,
 				IsActive:  true,
 				CreatedBy: request.UserID,
 				CreatedAt: time.Now().Unix(),
@@ -201,15 +212,24 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 	var addedThreadAttachmentsPayload []*entity.Attachment
 	if len(request.AddedAttachments) > 0 {
 		for _, attachment := range request.AddedAttachments {
-			fileName := strings.Split(attachment.Filename, ".")[0]
 			mimeFromHeader := attachment.Header.Get("Content-Type")
+
+			/*
+				Upload File to s3
+			*/
+			fileURL, err := u.s3Repo.UploadFile(c, attachment, utils.ThreadFileName, utils.ThreadFilePath,
+				config.LoadConfig().S3Bucket)
+
+			if err != nil {
+				return err
+			}
 
 			attachmentPayload := &entity.Attachment{
 				ID:        uuid.NewString(),
 				ThreadID:  request.ID,
-				FileName:  fileName,
+				FileName:  utils.ThreadFileName,
 				FileType:  mimeFromHeader,
-				FileUrl:   "TODO_file_url",
+				FileUrl:   fileURL,
 				IsActive:  true,
 				CreatedBy: request.UserID,
 				CreatedAt: time.Now().Unix(),
@@ -353,14 +373,18 @@ func (u *threadUsecase) GetList(c context.Context, request *request.GetListThrea
 
 	if len(tempThreads) > 0 {
 		for _, temp := range tempThreads {
-			threads = append(threads, mapTempToResGetList(temp))
+			threadRes, err := u.mapTempToResGetList(temp, c)
+			if err != nil {
+				return threads, meta, err
+			}
+			threads = append(threads, threadRes)
 		}
 	}
 
 	return
 }
-func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetListThreadRes {
-	res := response.GetListThreadRes{
+func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTempRes, c context.Context) (res response.GetListThreadRes, err error) {
+	res = response.GetListThreadRes{
 		ID:             tempThread.Thread.ID,
 		Title:          tempThread.Thread.Title,
 		Type:           tempThread.Thread.Type,
@@ -379,11 +403,20 @@ func mapTempToResGetList(tempThread response.GetListThreadTempRes) response.GetL
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
 	}
 	res.Tags = tempThread.Tags
-	res.Attachments = tempThread.Attachments
 	res.Institutions = tempThread.Institutions
 	res.PartnerTypes = tempThread.PartnerTypes
 	res.Profile = tempThread.Profile
-	return res
+
+	for _, attachment := range tempThread.Attachments {
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
+		res.Attachments = append(res.Attachments, attachment)
+	}
+
+	return
 }
 func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailThreadReq) (response response.GetDetailThreadRes, err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
@@ -397,12 +430,15 @@ func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailT
 		}
 	}
 
-	response = mapTempToResDetail(tempThread)
+	response, err = u.mapTempToResDetail(tempThread, c)
+	if err != nil {
+		return response, err
+	}
 
 	return
 }
-func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.GetDetailThreadRes {
-	res := response.GetDetailThreadRes{
+func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTempRes, c context.Context) (res response.GetDetailThreadRes, err error) {
+	res = response.GetDetailThreadRes{
 		ID:             tempThread.Thread.ID,
 		Title:          tempThread.Thread.Title,
 		Type:           tempThread.Thread.Type,
@@ -421,11 +457,20 @@ func mapTempToResDetail(tempThread response.GetDetailThreadTempRes) response.Get
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
 	}
 	res.Tags = tempThread.Tags
-	res.Attachments = tempThread.Attachments
 	res.Institutions = tempThread.Institutions
 	res.PartnerTypes = tempThread.PartnerTypes
 	res.Profile = tempThread.Profile
-	return res
+
+	for _, attachment := range tempThread.Attachments {
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
+		res.Attachments = append(res.Attachments, attachment)
+	}
+
+	return
 }
 func (u *threadUsecase) ReportThread(c context.Context, request *request.ReportThreadReq) (err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
@@ -512,14 +557,18 @@ func (u *threadUsecase) GetMyThread(c context.Context, request *request.GetMyThr
 
 	if len(tempThreads) > 0 {
 		for _, temp := range tempThreads {
-			threads = append(threads, mapTempToResGetMyThread(temp))
+			threadRes, err := u.mapTempToResGetMyThread(temp, c)
+			if err != nil {
+				return threads, meta, err
+			}
+			threads = append(threads, threadRes)
 		}
 	}
 
 	return
 }
-func mapTempToResGetMyThread(tempThread response.GetMyThreadTempRes) response.GetMyThreadRes {
-	res := response.GetMyThreadRes{
+func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadTempRes, c context.Context) (res response.GetMyThreadRes, err error) {
+	res = response.GetMyThreadRes{
 		ID:             tempThread.Thread.ID,
 		Title:          tempThread.Thread.Title,
 		Type:           tempThread.Thread.Type,
@@ -538,11 +587,20 @@ func mapTempToResGetMyThread(tempThread response.GetMyThreadTempRes) response.Ge
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
 	}
 	res.Tags = tempThread.Tags
-	res.Attachments = tempThread.Attachments
 	res.Institutions = tempThread.Institutions
 	res.PartnerTypes = tempThread.PartnerTypes
 	res.Profile = tempThread.Profile
-	return res
+
+	for _, attachment := range tempThread.Attachments {
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
+		res.Attachments = append(res.Attachments, attachment)
+	}
+
+	return
 }
 
 func (u *threadUsecase) GetDetailShared(c context.Context, request *request.GetDetailSharedReq) (response response.GetDetailSharedRes, err error) {
@@ -557,12 +615,15 @@ func (u *threadUsecase) GetDetailShared(c context.Context, request *request.GetD
 		}
 	}
 
-	response = mapTempToResDetailShared(tempThread)
+	response, err = u.mapTempToResDetailShared(tempThread, c)
+	if err != nil {
+		return response, err
+	}
 
 	return
 }
-func mapTempToResDetailShared(tempThread response.GetDetailSharedTempRes) response.GetDetailSharedRes {
-	res := response.GetDetailSharedRes{
+func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSharedTempRes, c context.Context) (res response.GetDetailSharedRes, err error) {
+	res = response.GetDetailSharedRes{
 		ID:             tempThread.Thread.ID,
 		Title:          tempThread.Thread.Title,
 		Type:           tempThread.Thread.Type,
@@ -581,9 +642,18 @@ func mapTempToResDetailShared(tempThread response.GetDetailSharedTempRes) respon
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
 	}
 	res.Tags = tempThread.Tags
-	res.Attachments = tempThread.Attachments
 	res.Institutions = tempThread.Institutions
 	res.PartnerTypes = tempThread.PartnerTypes
 	res.Profile = tempThread.Profile
-	return res
+
+	for _, attachment := range tempThread.Attachments {
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, err
+		}
+		res.Attachments = append(res.Attachments, attachment)
+	}
+
+	return
 }
