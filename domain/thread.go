@@ -22,6 +22,8 @@ type ThreadRepository interface {
 	ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (*entity.Thread, string, error)
 	GetMyThread(ctx context.Context, request *request.GetMyThreadReq) ([]response.GetMyThreadTempRes, response.MetaRes, error)
 	GetDetailShared(ctx context.Context, request *request.GetDetailSharedReq) (response.GetDetailSharedTempRes, error)
+	FollowThread(ctx context.Context, contentFollow *entity.ThreadFollow) error
+	UnfollowThread(ctx context.Context, request *request.UnfollowThreadReq) error
 }
 
 // ThreadUsecase represent the todos usecase contract
@@ -36,4 +38,6 @@ type ThreadUsecase interface {
 	ShareThread(ctx context.Context, request *request.ShareThreadReq) (response.ShareThreadRes, error)
 	GetMyThread(ctx context.Context, request *request.GetMyThreadReq) ([]response.GetMyThreadRes, response.MetaRes, error)
 	GetDetailShared(ctx context.Context, request *request.GetDetailSharedReq) (response.GetDetailSharedRes, error)
+	FollowThread(ctx context.Context, request *request.FollowThreadReq) error
+	UnfollowThread(ctx context.Context, request *request.UnfollowThreadReq) error
 }

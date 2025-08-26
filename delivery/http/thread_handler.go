@@ -34,6 +34,8 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.GET("/threads/share-url/:id", handler.ShareThread)
 	apiV1.GET("/threads/mine", handler.GetMyThread)
 	apiV1.GET("/threads/shares/:code", handler.GetDetailShared)
+	apiV1.POST("/threads/:id/follow", handler.FollowThread)
+	apiV1.DELETE("/threads/:id/follow", handler.UnfollowThread)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -356,6 +358,48 @@ func (h *ThreadHandler) GetDetailShared(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully retrieved",
 			"data":    res,
+		})
+	}
+}
+
+func (h *ThreadHandler) FollowThread(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req = request.FollowThreadReq{
+		ID:     c.Param("id"),
+		UserID: c.Request().Header.Get("x-user-id"),
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if err := h.ThreadUC.FollowThread(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Follow Thread Failed"))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread followed",
+		})
+	}
+}
+
+func (h *ThreadHandler) UnfollowThread(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req = request.UnfollowThreadReq{
+		ID:     c.Param("id"),
+		UserID: c.Request().Header.Get("x-user-id"),
+	}
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if err := h.ThreadUC.UnfollowThread(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Unfollow Thread Failed"))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread unfollowed",
 		})
 	}
 }

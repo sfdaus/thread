@@ -398,8 +398,18 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
+
 	(t.user_id = '%s') AS is_owner,
-	`, request.UserID, request.UserID, request.UserID)
+
+	((t.user_id = '%s') OR
+		EXISTS (
+		  SELECT 1
+		  FROM thread_follows tf
+		  WHERE tf.thread_id = t.id
+			AND tf.user_id = '%s'
+		)
+	  ) AS is_following,
+	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
@@ -561,9 +571,10 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	defer rows.Close()
 	type listRow struct {
 		entity.Thread
-		IsReported bool
-		IsUpvoted  bool
-		IsOwner    bool
+		IsReported  bool
+		IsUpvoted   bool
+		IsOwner     bool
+		IsFollowing bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -593,7 +604,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -628,6 +639,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		out.IsUpvoted = rrow.IsUpvoted
 		out.IsReported = rrow.IsReported
 		out.IsOwner = rrow.IsOwner
+		out.IsFollowing = rrow.IsFollowing
 		out.Profile = entity.Profile{
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
@@ -679,7 +691,17 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
+	
 	(t.user_id = '%s') AS is_owner,
+
+	((t.user_id = '%s') OR
+		EXISTS (
+		  SELECT 1
+		  FROM thread_follows tf
+		  WHERE tf.thread_id = t.id
+			AND tf.user_id = '%s'
+		)
+	) AS is_following,
 
 	-- profile (1-1)
 	COALESCE(p.name,'')        AS prof_name,
@@ -773,14 +795,15 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 
 	WHERE t.id = $1
 	LIMIT 1
-	`, request.UserID, request.UserID, request.UserID)
+	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
-		IsReported bool
-		IsUpvoted  bool
-		IsOwner    bool
+		IsReported  bool
+		IsUpvoted   bool
+		IsOwner     bool
+		IsFollowing bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -810,14 +833,14 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
-		&row.IsUpvoted, &row.IsReported, &row.IsOwner,
+		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
 	); err != nil {
 		// preferred: propagate sql.ErrNoRows; kalau mau custom NotFound, map di layer di atas.
 		if errors.Is(err, sql.ErrNoRows) {
-			return res, errors.New("Thread not found")
+			return res, utils.NewNotFoundError("Thread not found")
 		}
 		return res, err
 	}
@@ -841,6 +864,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	res.IsUpvoted = row.IsUpvoted
 	res.IsReported = row.IsReported
 	res.IsOwner = row.IsOwner
+	res.IsFollowing = row.IsFollowing
 	res.Profile = entity.Profile{
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
@@ -979,8 +1003,18 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
+
 	(t.user_id = '%s') AS is_owner,
-	`, request.UserID, request.UserID, request.UserID)
+	
+	((t.user_id = '%s') OR
+		EXISTS (
+		  SELECT 1
+		  FROM thread_follows tf
+		  WHERE tf.thread_id = t.id
+			AND tf.user_id = '%s'
+		)
+	) AS is_following,
+	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
@@ -1142,9 +1176,10 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	defer rows.Close()
 	type listRow struct {
 		entity.Thread
-		IsReported bool
-		IsUpvoted  bool
-		IsOwner    bool
+		IsReported  bool
+		IsUpvoted   bool
+		IsOwner     bool
+		IsFollowing bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -1174,7 +1209,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -1209,6 +1244,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		out.IsUpvoted = rrow.IsUpvoted
 		out.IsReported = rrow.IsReported
 		out.IsOwner = rrow.IsOwner
+		out.IsFollowing = rrow.IsFollowing
 		out.Profile = entity.Profile{
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
@@ -1273,13 +1309,24 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 					SELECT 1 FROM content_reports crx
 					WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 				)) AS is_reported,
+
 				(t.user_id = '%s') AS is_owner,
-				`, request.UserID, request.UserID, request.UserID)
+
+				((t.user_id = '%s') OR
+					EXISTS (
+					SELECT 1
+					FROM thread_follows tf
+					WHERE tf.thread_id = t.id
+						AND tf.user_id = '%s'
+					)
+				) AS is_following,
+				`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 	} else {
 		addedQuery = `
 					false AS is_upvoted,
 					false AS is_reported,
 					false AS is_owner,
+					false AS is_following,
 					`
 	}
 
@@ -1388,9 +1435,10 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
-		IsReported bool
-		IsUpvoted  bool
-		IsOwner    bool
+		IsReported  bool
+		IsUpvoted   bool
+		IsOwner     bool
+		IsFollowing bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -1420,14 +1468,14 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
-		&row.IsUpvoted, &row.IsReported, &row.IsOwner,
+		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
 	); err != nil {
 		// preferred: propagate sql.ErrNoRows; kalau mau custom NotFound, map di layer di atas.
 		if errors.Is(err, sql.ErrNoRows) {
-			return res, errors.New("Thread not found")
+			return res, utils.NewNotFoundError("Thread not found")
 		}
 		return res, err
 	}
@@ -1451,6 +1499,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 	res.IsUpvoted = row.IsUpvoted
 	res.IsReported = row.IsReported
 	res.IsOwner = row.IsOwner
+	res.IsFollowing = row.IsFollowing
 	res.Profile = entity.Profile{
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
@@ -1495,4 +1544,42 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 	}
 
 	return res, nil
+}
+
+func (r *pgsqlThreadRepository) FollowThread(ctx context.Context, followThread *entity.ThreadFollow) (err error) {
+	var ownerID string
+	if err = r.db.QueryRowContext(ctx,
+		`SELECT user_id FROM threads WHERE id=$1`, followThread.ThreadID).
+		Scan(&ownerID); err != nil {
+		return err
+	}
+	if ownerID == followThread.UserID {
+		return utils.NewForbiddenError("You can't follow your own thread")
+	}
+
+	query := `INSERT INTO thread_follows (id, user_id, thread_id, is_active, created_by, 
+		created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	if _, err = r.db.ExecContext(ctx, query, followThread.ID, followThread.UserID, followThread.ThreadID,
+		followThread.IsActive, followThread.CreatedBy, followThread.CreatedAt, followThread.UpdatedAt); err != nil {
+
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Constraint == "thread_follows_un" {
+				return utils.NewForbiddenError("Cannot follow the same thread twice")
+			}
+		}
+		return err
+	}
+
+	return
+}
+
+func (r *pgsqlThreadRepository) UnfollowThread(ctx context.Context, request *request.UnfollowThreadReq) (err error) {
+	query := `DELETE FROM thread_follows WHERE thread_id = $1 AND user_id = $2;`
+	if res, err := r.db.ExecContext(ctx, query, request.ID, request.UserID); err != nil {
+		return err
+	} else if affected, _ := res.RowsAffected(); affected == 0 {
+		return utils.NewNotFoundError("You are not following this thread")
+	}
+
+	return
 }
