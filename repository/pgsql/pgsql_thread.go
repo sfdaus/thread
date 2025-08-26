@@ -817,7 +817,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	); err != nil {
 		// preferred: propagate sql.ErrNoRows; kalau mau custom NotFound, map di layer di atas.
 		if errors.Is(err, sql.ErrNoRows) {
-			return res, errors.New("Thread not found")
+			return res, utils.NewNotFoundError("Thread not found")
 		}
 		return res, err
 	}
@@ -1495,4 +1495,32 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 	}
 
 	return res, nil
+}
+
+func (r *pgsqlThreadRepository) FollowThread(ctx context.Context, followThread *entity.ThreadFollow) (err error) {
+	query := `INSERT INTO thread_follows (id, user_id, thread_id, is_active, created_by, 
+		created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	if _, err = r.db.ExecContext(ctx, query, followThread.ID, followThread.UserID, followThread.ThreadID,
+		followThread.IsActive, followThread.CreatedBy, followThread.CreatedAt, followThread.UpdatedAt); err != nil {
+
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Constraint == "thread_follows_un" {
+				return utils.NewForbiddenError("Cannot follow the same thread twice")
+			}
+		}
+		return err
+	}
+
+	return
+}
+
+func (r *pgsqlThreadRepository) UnfollowThread(ctx context.Context, request *request.UnfollowThreadReq) (err error) {
+	query := `DELETE FROM thread_follows WHERE thread_id = $1 AND user_id = $2;`
+	if res, err := r.db.ExecContext(ctx, query, request.ID, request.UserID); err != nil {
+		return err
+	} else if affected, _ := res.RowsAffected(); affected == 0 {
+		return utils.NewNotFoundError("You are not following this thread")
+	}
+
+	return
 }

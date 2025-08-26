@@ -657,3 +657,31 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 
 	return
 }
+
+func (u *threadUsecase) FollowThread(c context.Context, request *request.FollowThreadReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	followThreadPayload := &entity.ThreadFollow{
+		ID:        uuid.NewString(),
+		UserID:    request.UserID,
+		ThreadID:  request.ID,
+		IsActive:  true,
+		CreatedAt: time.Now().Unix(),
+		CreatedBy: request.UserID,
+		UpdatedAt: time.Now().Unix(),
+	}
+
+	err = u.threadRepo.FollowThread(ctx, followThreadPayload)
+
+	return
+}
+
+func (u *threadUsecase) UnfollowThread(c context.Context, request *request.UnfollowThreadReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	err = u.threadRepo.UnfollowThread(ctx, request)
+
+	return
+}

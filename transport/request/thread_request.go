@@ -204,3 +204,31 @@ func (request GetDetailSharedReq) Validate() error {
 		validation.Field(&request.Code, validation.Required),
 	)
 }
+
+// Follow Thread request body
+type FollowThreadReq struct {
+	ID     string `param:"id"`
+	UserID string
+}
+
+func (request FollowThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
+
+// Unfollow Thread request body
+type UnfollowThreadReq struct {
+	ID     string `param:"id"`
+	UserID string
+}
+
+func (request UnfollowThreadReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}

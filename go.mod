@@ -13,7 +13,7 @@ require (
 	github.com/labstack/gommon v0.3.1
 	github.com/lib/pq v1.10.3
 	github.com/rs/zerolog v1.29.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.11.0
 	github.com/swaggo/echo-swagger v1.3.2
 	github.com/swaggo/swag v1.8.2
 	golang.org/x/crypto v0.39.0
