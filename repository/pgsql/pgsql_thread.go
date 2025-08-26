@@ -908,6 +908,11 @@ func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote 
             	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	if _, err = r.db.ExecContext(ctx, query, contentUpvote.ID, contentUpvote.UserID, contentUpvote.ThreadID,
 		contentUpvote.IsActive, contentUpvote.CreatedBy, contentUpvote.CreatedAt, contentUpvote.UpdatedAt); err != nil {
+		if pgErr, ok := err.(*pq.Error); ok {
+			if pgErr.Constraint == "ux_likes_unique_thread" {
+				return utils.NewForbiddenError("Cannot upvote the same thread twice")
+			}
+		}
 		return err
 	}
 
