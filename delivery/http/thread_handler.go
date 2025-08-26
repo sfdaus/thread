@@ -91,7 +91,7 @@ func (h *ThreadHandler) Create(c echo.Context) error {
 	}
 
 	if res, err := h.ThreadUC.Create(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Create Thread Failed"))
 	} else {
 		return c.JSON(http.StatusCreated, map[string]interface{}{
 			"message": "Thread successfully created",
@@ -180,7 +180,7 @@ func (h *ThreadHandler) Delete(c echo.Context) error {
 	}
 
 	if rowsAffected, err := h.ThreadUC.Delete(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Delete Thread Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully deleted",
@@ -207,7 +207,7 @@ func (h *ThreadHandler) GetList(c echo.Context) error {
 	}
 
 	if res, meta, err := h.ThreadUC.GetList(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get List Threads Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully retrieved",
@@ -258,7 +258,7 @@ func (h *ThreadHandler) ReportThread(c echo.Context) error {
 	}
 
 	if err := h.ThreadUC.ReportThread(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Report Thread Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread report submitted",
@@ -279,7 +279,7 @@ func (h *ThreadHandler) UpvoteThread(c echo.Context) error {
 	}
 
 	if err := h.ThreadUC.UpvoteThread(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Upvote Thread Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread upvote submitted",
@@ -303,7 +303,7 @@ func (h *ThreadHandler) ShareThread(c echo.Context) error {
 	}
 
 	if res, err := h.ThreadUC.ShareThread(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Share Thread Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Success",
@@ -328,7 +328,7 @@ func (h *ThreadHandler) GetMyThread(c echo.Context) error {
 	}
 
 	if res, meta, err := h.ThreadUC.GetMyThread(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpError(err))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Personal Thread Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully retrieved",
@@ -351,7 +351,7 @@ func (h *ThreadHandler) GetDetailShared(c echo.Context) error {
 	}
 
 	if res, err := h.ThreadUC.GetDetailShared(ctx, &req); err != nil {
-		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Detail Failed"))
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Shared Thread Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread successfully retrieved",
