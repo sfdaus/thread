@@ -46,7 +46,7 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *entity.Threa
 	}()
 
 	query := `INSERT INTO threads (id, user_id, title, type, description, upvote_number, report_number, followed_number, deadline, 
-				status, short_id, slug, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12, $13, $14)`
+				status, short_id, slug, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12, $13, $14, $15)`
 	if _, err = r.db.ExecContext(ctx, query, thread.ID, thread.UserID, thread.Title, pq.Array(thread.Type), thread.Description, thread.UpvoteNumber,
 		thread.ReportNumber, thread.FollowedNumber, thread.Deadline, thread.Status, thread.ShortID, thread.Slug, thread.CreatedBy, thread.CreatedAt,
 		thread.CreatedAt); err != nil {
