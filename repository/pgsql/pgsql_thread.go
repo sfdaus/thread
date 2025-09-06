@@ -398,6 +398,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
+	(SELECT count(*) FROM comments cx WHERE cx.thread_id = t.id AND coalesce(cx.is_active, true)) AS count_comments,
 
 	(t.user_id = '%s') AS is_owner,
 
@@ -533,7 +534,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 					 'amount_fulfilled', tpt.amount_fulfilled,
 					 'is_active', tpt.is_active,
 					 'created_at', tpt.created_at,
-					 'updated_at', tpt.updated_at
+					 'updated_at', tpt.updated_at,
+					 'partner_type_id', tpt.partner_type_id
 				   ) ORDER BY pt.name
 				 ) AS partner_types
 		  FROM thread_partner_types tpt
@@ -587,6 +589,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		TagsJSON         []byte
 		PartnerTypesJSON []byte
 		InstitutionsJSON []byte
+		CountComments    int64
 	}
 
 	for rows.Next() {
@@ -604,7 +607,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.CountComments, &rrow.IsOwner, &rrow.IsFollowing,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -638,6 +641,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		out.Thread = rrow.Thread
 		out.IsUpvoted = rrow.IsUpvoted
 		out.IsReported = rrow.IsReported
+		out.CountComments = rrow.CountComments
 		out.IsOwner = rrow.IsOwner
 		out.IsFollowing = rrow.IsFollowing
 		out.Profile = entity.Profile{
@@ -691,6 +695,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
+	(SELECT count(*) FROM comments cx WHERE cx.thread_id = t.id AND coalesce(cx.is_active, true)) AS count_comments,
 	
 	(t.user_id = '%s') AS is_owner,
 
@@ -767,7 +772,8 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 				'amount_fulfilled', tpt.amount_fulfilled,
 				'is_active', tpt.is_active,
 				'created_at', tpt.created_at,
-				'updated_at', tpt.updated_at
+				'updated_at', tpt.updated_at,
+				'partner_type_id', tpt.partner_type_id
 				) ORDER BY pt.name
 			) AS partner_types
 		FROM thread_partner_types tpt
@@ -800,10 +806,11 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
-		IsReported  bool
-		IsUpvoted   bool
-		IsOwner     bool
-		IsFollowing bool
+		IsReported    bool
+		IsUpvoted     bool
+		IsOwner       bool
+		IsFollowing   bool
+		CountComments int64
 
 		ProfName      string
 		ProfNameAlias string
@@ -833,7 +840,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
-		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
+		&row.IsUpvoted, &row.IsReported, &row.CountComments, &row.IsOwner, &row.IsFollowing,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
@@ -863,6 +870,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	res.Thread = row.Thread
 	res.IsUpvoted = row.IsUpvoted
 	res.IsReported = row.IsReported
+	res.CountComments = row.CountComments
 	res.IsOwner = row.IsOwner
 	res.IsFollowing = row.IsFollowing
 	res.Profile = entity.Profile{

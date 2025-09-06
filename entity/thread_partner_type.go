@@ -32,6 +32,7 @@ type SecurePartnerType struct {
 	IsActive             bool    `json:"is_active"`
 	CreatedAt            int64   `json:"created_at"`
 	UpdatedAt            int64   `json:"updated_at"`
+	PartnerTypeID        string  `json:"partner_type_id"`
 }
 
 type UpdateThreadPartnerType struct {
