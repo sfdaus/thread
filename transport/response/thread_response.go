@@ -164,3 +164,9 @@ type GetDetailSharedTempRes struct {
 	Institutions []entity.SecureInstitution `json:"institutions"`
 	Profile      entity.Profile             `json:"profile"`
 }
+
+type ThreadStatsRes struct {
+	IdeasShared        int64 `json:"ideas_shared"`
+	PartnersNeededOpen int64 `json:"partners_needed_open"`
+	ActiveProjects     int64 `json:"active_projects"`
+}

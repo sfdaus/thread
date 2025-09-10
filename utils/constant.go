@@ -19,3 +19,9 @@ var Status = ResponseStatus{
 	Failed:  "failed",
 	Error:   "error",
 }
+
+var ThreadStatus = map[string]string{
+	"submitted": "SUBMITTED",
+	"drafted":   "DRAFTED",
+	"rejected":  "REJECTED",
+}

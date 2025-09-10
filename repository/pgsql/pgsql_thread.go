@@ -1599,3 +1599,75 @@ func (r *pgsqlThreadRepository) UnfollowThread(ctx context.Context, request *req
 
 	return
 }
+
+func (r *pgsqlThreadRepository) ThreadStats(ctx context.Context, request *request.ThreadStatsReq) (res response.ThreadStatsRes, err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var ideasShared int64
+	query := `SELECT COUNT(*) 
+				FROM threads t
+				WHERE t.user_id = $1 
+				  AND t.is_active = TRUE 
+				  AND t.status = $2`
+
+	sc := tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
+	if err = sc.Scan(&ideasShared); err != nil {
+		return res, err
+	}
+
+	var partnersNeededOpen int64
+	query = `SELECT COALESCE(
+						 SUM(
+						   GREATEST(
+							 COALESCE(tpt.amount_needed, 0) - COALESCE(tpt.amount_fulfilled, 0),
+							 0
+						   )
+						 ),
+					   0) AS partners_needed_open
+				FROM thread_partner_types tpt
+				JOIN threads t ON t.id = tpt.thread_id
+				WHERE t.user_id = $1
+				  AND t.is_active = TRUE
+				  AND t.status = $2`
+
+	sc = tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
+	if err = sc.Scan(&partnersNeededOpen); err != nil {
+		return res, err
+	}
+
+	var activeProjects int64
+	query = `SELECT COUNT(*) AS active_projects
+				FROM threads t
+				WHERE t.user_id = $1
+				  AND t.is_active = TRUE
+				  AND t.status = $2
+				  AND (t.deadline IS NULL OR t.deadline > NOW());`
+
+	sc = tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
+	if err = sc.Scan(&activeProjects); err != nil {
+		return res, err
+	}
+
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
+		return
+	}
+
+	// Input data to res
+	res.IdeasShared = ideasShared
+	res.PartnersNeededOpen = partnersNeededOpen
+	res.ActiveProjects = activeProjects
+
+	return
+}

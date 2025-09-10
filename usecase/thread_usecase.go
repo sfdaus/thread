@@ -709,3 +709,12 @@ func (u *threadUsecase) UnfollowThread(c context.Context, request *request.Unfol
 
 	return
 }
+
+func (u *threadUsecase) ThreadStats(c context.Context, request *request.ThreadStatsReq) (res response.ThreadStatsRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	res, err = u.threadRepo.ThreadStats(ctx, request)
+
+	return
+}

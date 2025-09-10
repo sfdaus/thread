@@ -246,3 +246,16 @@ func (request UnfollowThreadReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Thread Stats request
+type ThreadStatsReq struct {
+	Filter string `query:"filter"`
+	UserID string
+}
+
+func (request ThreadStatsReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
