@@ -107,6 +107,7 @@ type GetMyThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	IsOwner        bool                       `json:"is_owner"`
 	IsFollowing    bool                       `json:"is_following"`
+	CommentCount   int64                      `json:"comment_count"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
 	Profile        entity.Profile             `json:"profile"`
@@ -122,6 +123,7 @@ type GetMyThreadTempRes struct {
 	IsUpvoted    bool                       `json:"is_upvoted"`
 	IsOwner      bool                       `json:"is_owner"`
 	IsFollowing  bool                       `json:"is_following"`
+	CommentCount int64                      `json:"comment_count"`
 	Attachments  []entity.SecureAttachment  `json:"attachments"`
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`

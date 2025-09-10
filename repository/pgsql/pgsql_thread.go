@@ -553,7 +553,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 					 'amount_fulfilled', tpt.amount_fulfilled,
 					 'is_active', tpt.is_active,
 					 'created_at', tpt.created_at,
-					 'updated_at', tpt.updated_at
+					 'updated_at', tpt.updated_at,
+					 'partner_type_id', tpt.partner_type_id
 				   ) ORDER BY pt.name
 				 ) AS partner_types
 		  FROM thread_partner_types tpt
@@ -789,7 +790,8 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 				'amount_fulfilled', tpt.amount_fulfilled,
 				'is_active', tpt.is_active,
 				'created_at', tpt.created_at,
-				'updated_at', tpt.updated_at
+				'updated_at', tpt.updated_at,
+				'partner_type_id', tpt.partner_type_id
 				) ORDER BY pt.name
 			) AS partner_types
 		FROM thread_partner_types tpt
@@ -1111,6 +1113,8 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	// 4. Data query (Profile + Institution in Profile)
 	query = fmt.Sprintf(`
 		  %s
+		  -- comment
+		  COALESCE(jc.comment_count, 0) AS comment_count,
 
 		  -- profile (1-1)
 		  COALESCE(p.name,'')        AS prof_name,
@@ -1130,6 +1134,15 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		FROM threads t
 		LEFT JOIN profiles p     ON p.user_id = t.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
+
+		-- comments
+		LEFT JOIN LATERAL (
+		  SELECT COUNT(*) AS comment_count
+		  FROM comments c
+		  WHERE c.thread_id = t.id
+			AND COALESCE(c.is_active, true)
+			AND c.deleted_at IS NULL
+		) jc ON true
 
 		-- attachments
 		LEFT JOIN LATERAL (
@@ -1214,10 +1227,11 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	defer rows.Close()
 	type listRow struct {
 		entity.Thread
-		IsReported  bool
-		IsUpvoted   bool
-		IsOwner     bool
-		IsFollowing bool
+		IsReported   bool
+		IsUpvoted    bool
+		IsOwner      bool
+		IsFollowing  bool
+		CommentCount int64
 
 		ProfName      string
 		ProfNameAlias string
@@ -1247,7 +1261,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -1293,6 +1307,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 				Type:  rrow.ProfInstType,
 			},
 		}
+		out.CommentCount = rrow.CommentCount
 
 		if err := json.Unmarshal(rrow.AttachmentsJSON, &out.Attachments); err != nil {
 			return nil, meta, err

@@ -402,6 +402,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
+		CommentCount:   tempThread.CommentCount,
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
@@ -604,6 +605,7 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
+		CommentCount:   tempThread.CommentCount,
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
