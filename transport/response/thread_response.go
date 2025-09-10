@@ -25,6 +25,7 @@ type GetListThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	IsOwner        bool                       `json:"is_owner"`
 	IsFollowing    bool                       `json:"is_following"`
+	CommentCount   int64                      `json:"comment_count"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
 	Profile        entity.Profile             `json:"profile"`
@@ -32,21 +33,20 @@ type GetListThreadRes struct {
 	Tags           []entity.SecureTag         `json:"tags"`
 	PartnerTypes   []entity.SecurePartnerType `json:"partner_types"`
 	Institutions   []entity.SecureInstitution `json:"institutions"`
-	CountComments  int64                      `json:"count_comments"`
 }
 
 type GetListThreadTempRes struct {
-	Thread        entity.Thread              `json:"thread"`
-	IsReported    bool                       `json:"is_reported"`
-	IsUpvoted     bool                       `json:"is_upvoted"`
-	IsOwner       bool                       `json:"is_owner"`
-	IsFollowing   bool                       `json:"is_following"`
-	Attachments   []entity.SecureAttachment  `json:"attachments"`
-	Tags          []entity.SecureTag         `json:"tags"`
-	PartnerTypes  []entity.SecurePartnerType `json:"partner_types"`
-	Institutions  []entity.SecureInstitution `json:"institutions"`
-	Profile       entity.Profile             `json:"profile"`
-	CountComments int64                      `json:"count_comments"`
+	Thread       entity.Thread              `json:"thread"`
+	IsReported   bool                       `json:"is_reported"`
+	IsUpvoted    bool                       `json:"is_upvoted"`
+	IsOwner      bool                       `json:"is_owner"`
+	IsFollowing  bool                       `json:"is_following"`
+	Attachments  []entity.SecureAttachment  `json:"attachments"`
+	Tags         []entity.SecureTag         `json:"tags"`
+	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
+	Institutions []entity.SecureInstitution `json:"institutions"`
+	Profile      entity.Profile             `json:"profile"`
+	CommentCount int64                      `json:"comment_count"`
 }
 
 type GetDetailThreadRes struct {
@@ -72,21 +72,19 @@ type GetDetailThreadRes struct {
 	Tags           []entity.SecureTag         `json:"tags"`
 	PartnerTypes   []entity.SecurePartnerType `json:"partner_types"`
 	Institutions   []entity.SecureInstitution `json:"institutions"`
-	CountComments  int64                      `json:"count_comments"`
 }
 
 type GetDetailThreadTempRes struct {
-	Thread        entity.Thread              `json:"thread"`
-	IsReported    bool                       `json:"is_reported"`
-	IsUpvoted     bool                       `json:"is_upvoted"`
-	IsOwner       bool                       `json:"is_owner"`
-	IsFollowing   bool                       `json:"is_following"`
-	Attachments   []entity.SecureAttachment  `json:"attachments"`
-	Tags          []entity.SecureTag         `json:"tags"`
-	PartnerTypes  []entity.SecurePartnerType `json:"partner_types"`
-	Institutions  []entity.SecureInstitution `json:"institutions"`
-	Profile       entity.Profile             `json:"profile"`
-	CountComments int64                      `json:"count_comments"`
+	Thread       entity.Thread              `json:"thread"`
+	IsReported   bool                       `json:"is_reported"`
+	IsUpvoted    bool                       `json:"is_upvoted"`
+	IsOwner      bool                       `json:"is_owner"`
+	IsFollowing  bool                       `json:"is_following"`
+	Attachments  []entity.SecureAttachment  `json:"attachments"`
+	Tags         []entity.SecureTag         `json:"tags"`
+	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
+	Institutions []entity.SecureInstitution `json:"institutions"`
+	Profile      entity.Profile             `json:"profile"`
 }
 
 type ShareThreadRes struct {
@@ -109,6 +107,7 @@ type GetMyThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	IsOwner        bool                       `json:"is_owner"`
 	IsFollowing    bool                       `json:"is_following"`
+	CommentCount   int64                      `json:"comment_count"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
 	Profile        entity.Profile             `json:"profile"`
@@ -124,6 +123,7 @@ type GetMyThreadTempRes struct {
 	IsUpvoted    bool                       `json:"is_upvoted"`
 	IsOwner      bool                       `json:"is_owner"`
 	IsFollowing  bool                       `json:"is_following"`
+	CommentCount int64                      `json:"comment_count"`
 	Attachments  []entity.SecureAttachment  `json:"attachments"`
 	Tags         []entity.SecureTag         `json:"tags"`
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
@@ -167,4 +167,10 @@ type GetDetailSharedTempRes struct {
 	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
 	Institutions []entity.SecureInstitution `json:"institutions"`
 	Profile      entity.Profile             `json:"profile"`
+}
+
+type ThreadStatsRes struct {
+	IdeasShared        int64 `json:"ideas_shared"`
+	PartnersNeededOpen int64 `json:"partners_needed_open"`
+	ActiveProjects     int64 `json:"active_projects"`
 }

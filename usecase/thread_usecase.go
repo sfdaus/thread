@@ -402,7 +402,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
-		CountComments:  tempThread.CountComments,
+		CommentCount:   tempThread.CommentCount,
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
@@ -420,6 +420,8 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 		}
 		res.Attachments = append(res.Attachments, attachment)
 	}
+
+	res.CommentCount = tempThread.CommentCount
 
 	return
 }
@@ -461,7 +463,6 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
-		CountComments:  tempThread.CountComments,
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
@@ -604,6 +605,7 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
+		CommentCount:   tempThread.CommentCount,
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
@@ -708,6 +710,15 @@ func (u *threadUsecase) UnfollowThread(c context.Context, request *request.Unfol
 	defer cancel()
 
 	err = u.threadRepo.UnfollowThread(ctx, request)
+
+	return
+}
+
+func (u *threadUsecase) ThreadStats(c context.Context, request *request.ThreadStatsReq) (res response.ThreadStatsRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	res, err = u.threadRepo.ThreadStats(ctx, request)
 
 	return
 }

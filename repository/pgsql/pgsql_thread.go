@@ -398,7 +398,6 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
-	(SELECT count(*) FROM comments cx WHERE cx.thread_id = t.id AND coalesce(cx.is_active, true)) AS count_comments,
 
 	(t.user_id = '%s') AS is_owner,
 
@@ -428,6 +427,15 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		wheres = append(wheres, fmt.Sprintf("t.is_active = $%d", idx))
 		args = append(args, request.IsActive)
 		idx++
+	}
+
+	switch strings.ToLower(strings.TrimSpace(request.Time)) {
+	case "expired":
+		wheres = append(wheres, "t.deadline IS NOT NULL AND t.deadline <= NOW()")
+	case "all":
+		// no filter
+	default: // active only
+		wheres = append(wheres, "(t.deadline IS NULL OR t.deadline > NOW())")
 	}
 
 	whereSQL := ""
@@ -469,6 +477,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	// 4. Data query (Profile + Institution in Profile)
 	query = fmt.Sprintf(`
 		  %s
+		  -- comment
+		  COALESCE(jc.comment_count, 0) AS comment_count,
 
 		  -- profile (1-1)
 		  COALESCE(p.name,'')        AS prof_name,
@@ -488,6 +498,15 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		FROM threads t
 		LEFT JOIN profiles p     ON p.user_id = t.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
+
+		-- comments
+		LEFT JOIN LATERAL (
+		  SELECT COUNT(*) AS comment_count
+		  FROM comments c
+		  WHERE c.thread_id = t.id
+			AND COALESCE(c.is_active, true)
+			AND c.deleted_at IS NULL
+		) jc ON true
 
 		-- attachments
 		LEFT JOIN LATERAL (
@@ -573,10 +592,11 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	defer rows.Close()
 	type listRow struct {
 		entity.Thread
-		IsReported  bool
-		IsUpvoted   bool
-		IsOwner     bool
-		IsFollowing bool
+		IsReported   bool
+		IsUpvoted    bool
+		IsOwner      bool
+		IsFollowing  bool
+		CommentCount int64
 
 		ProfName      string
 		ProfNameAlias string
@@ -589,7 +609,6 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		TagsJSON         []byte
 		PartnerTypesJSON []byte
 		InstitutionsJSON []byte
-		CountComments    int64
 	}
 
 	for rows.Next() {
@@ -607,7 +626,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.CountComments, &rrow.IsOwner, &rrow.IsFollowing,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -641,7 +660,6 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		out.Thread = rrow.Thread
 		out.IsUpvoted = rrow.IsUpvoted
 		out.IsReported = rrow.IsReported
-		out.CountComments = rrow.CountComments
 		out.IsOwner = rrow.IsOwner
 		out.IsFollowing = rrow.IsFollowing
 		out.Profile = entity.Profile{
@@ -654,6 +672,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 				Type:  rrow.ProfInstType,
 			},
 		}
+		out.CommentCount = rrow.CommentCount
 
 		if err := json.Unmarshal(rrow.AttachmentsJSON, &out.Attachments); err != nil {
 			return nil, meta, err
@@ -695,7 +714,6 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		SELECT 1 FROM content_reports crx
 		WHERE crx.thread_id = t.id AND crx.reporter_id = '%s' AND coalesce(crx.is_active, true)
 	)) AS is_reported,
-	(SELECT count(*) FROM comments cx WHERE cx.thread_id = t.id AND coalesce(cx.is_active, true)) AS count_comments,
 	
 	(t.user_id = '%s') AS is_owner,
 
@@ -806,11 +824,10 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
-		IsReported    bool
-		IsUpvoted     bool
-		IsOwner       bool
-		IsFollowing   bool
-		CountComments int64
+		IsReported  bool
+		IsUpvoted   bool
+		IsOwner     bool
+		IsFollowing bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -840,7 +857,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
-		&row.IsUpvoted, &row.IsReported, &row.CountComments, &row.IsOwner, &row.IsFollowing,
+		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
@@ -870,7 +887,6 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	res.Thread = row.Thread
 	res.IsUpvoted = row.IsUpvoted
 	res.IsReported = row.IsReported
-	res.CountComments = row.CountComments
 	res.IsOwner = row.IsOwner
 	res.IsFollowing = row.IsFollowing
 	res.Profile = entity.Profile{
@@ -1097,6 +1113,8 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	// 4. Data query (Profile + Institution in Profile)
 	query = fmt.Sprintf(`
 		  %s
+		  -- comment
+		  COALESCE(jc.comment_count, 0) AS comment_count,
 
 		  -- profile (1-1)
 		  COALESCE(p.name,'')        AS prof_name,
@@ -1116,6 +1134,15 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		FROM threads t
 		LEFT JOIN profiles p     ON p.user_id = t.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
+
+		-- comments
+		LEFT JOIN LATERAL (
+		  SELECT COUNT(*) AS comment_count
+		  FROM comments c
+		  WHERE c.thread_id = t.id
+			AND COALESCE(c.is_active, true)
+			AND c.deleted_at IS NULL
+		) jc ON true
 
 		-- attachments
 		LEFT JOIN LATERAL (
@@ -1200,10 +1227,11 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	defer rows.Close()
 	type listRow struct {
 		entity.Thread
-		IsReported  bool
-		IsUpvoted   bool
-		IsOwner     bool
-		IsFollowing bool
+		IsReported   bool
+		IsUpvoted    bool
+		IsOwner      bool
+		IsFollowing  bool
+		CommentCount int64
 
 		ProfName      string
 		ProfNameAlias string
@@ -1233,7 +1261,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -1279,6 +1307,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 				Type:  rrow.ProfInstType,
 			},
 		}
+		out.CommentCount = rrow.CommentCount
 
 		if err := json.Unmarshal(rrow.AttachmentsJSON, &out.Attachments); err != nil {
 			return nil, meta, err
@@ -1604,6 +1633,78 @@ func (r *pgsqlThreadRepository) UnfollowThread(ctx context.Context, request *req
 	} else if affected, _ := res.RowsAffected(); affected == 0 {
 		return utils.NewNotFoundError("You are not following this thread")
 	}
+
+	return
+}
+
+func (r *pgsqlThreadRepository) ThreadStats(ctx context.Context, request *request.ThreadStatsReq) (res response.ThreadStatsRes, err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var ideasShared int64
+	query := `SELECT COUNT(*) 
+				FROM threads t
+				WHERE t.user_id = $1 
+				  AND t.is_active = TRUE 
+				  AND t.status = $2`
+
+	sc := tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
+	if err = sc.Scan(&ideasShared); err != nil {
+		return res, err
+	}
+
+	var partnersNeededOpen int64
+	query = `SELECT COALESCE(
+						 SUM(
+						   GREATEST(
+							 COALESCE(tpt.amount_needed, 0) - COALESCE(tpt.amount_fulfilled, 0),
+							 0
+						   )
+						 ),
+					   0) AS partners_needed_open
+				FROM thread_partner_types tpt
+				JOIN threads t ON t.id = tpt.thread_id
+				WHERE t.user_id = $1
+				  AND t.is_active = TRUE
+				  AND t.status = $2`
+
+	sc = tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
+	if err = sc.Scan(&partnersNeededOpen); err != nil {
+		return res, err
+	}
+
+	var activeProjects int64
+	query = `SELECT COUNT(*) AS active_projects
+				FROM threads t
+				WHERE t.user_id = $1
+				  AND t.is_active = TRUE
+				  AND t.status = $2
+				  AND (t.deadline IS NULL OR t.deadline > NOW());`
+
+	sc = tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
+	if err = sc.Scan(&activeProjects); err != nil {
+		return res, err
+	}
+
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
+		return
+	}
+
+	// Input data to res
+	res.IdeasShared = ideasShared
+	res.PartnersNeededOpen = partnersNeededOpen
+	res.ActiveProjects = activeProjects
 
 	return
 }

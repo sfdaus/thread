@@ -37,6 +37,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.GET("/threads/shares/:code", handler.GetDetailShared)
 	apiV1.POST("/threads/:id/follow", handler.FollowThread)
 	apiV1.DELETE("/threads/:id/follow", handler.UnfollowThread)
+	apiV1.GET("/threads/mine/stats", handler.ThreadStats)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -422,6 +423,31 @@ func (h *ThreadHandler) UnfollowThread(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Thread unfollowed",
+		})
+	}
+}
+
+func (h *ThreadHandler) ThreadStats(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.ThreadStatsReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if res, err := h.ThreadUC.ThreadStats(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Thread Stats Failed"))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread statistics successfully retrieved",
+			"data":    res,
 		})
 	}
 }

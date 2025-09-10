@@ -105,6 +105,7 @@ type GetListThreadReq struct {
 	Title    string `query:"title"`
 	Status   string `query:"status"`
 	IsActive *bool  `query:"is_active"`
+	Time     string `query:"time"`
 	PerPage  int64  `query:"per_page"`
 	Page     int64  `query:"page"`
 }
@@ -243,6 +244,19 @@ func (request UnfollowThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
+
+// Thread Stats request
+type ThreadStatsReq struct {
+	Filter string `query:"filter"`
+	UserID string
+}
+
+func (request ThreadStatsReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
