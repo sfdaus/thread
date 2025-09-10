@@ -420,6 +420,8 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 		res.Attachments = append(res.Attachments, attachment)
 	}
 
+	res.CommentCount = tempThread.CommentCount
+
 	return
 }
 func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailThreadReq) (response response.GetDetailThreadRes, err error) {

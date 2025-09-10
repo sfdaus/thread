@@ -105,6 +105,7 @@ type GetListThreadReq struct {
 	Title    string `query:"title"`
 	Status   string `query:"status"`
 	IsActive *bool  `query:"is_active"`
+	Time     string `query:"time"`
 	PerPage  int64  `query:"per_page"`
 	Page     int64  `query:"page"`
 }
