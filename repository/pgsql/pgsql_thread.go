@@ -554,7 +554,23 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 					 'is_active', tpt.is_active,
 					 'created_at', tpt.created_at,
 					 'updated_at', tpt.updated_at,
-					 'partner_type_id', tpt.partner_type_id
+					 'partner_type_id', tpt.partner_type_id,
+					 'partner_profile',
+						CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
+						SELECT jsonb_build_object(
+							'name', COALESCE(prof.name,''),
+							'name_alias', COALESCE(prof.name_alias,''),
+							'avatar', COALESCE(prof.avatar,'')
+						)
+						FROM thread_collaborators tc
+						JOIN profiles prof ON prof.user_id = tc.user_id
+						WHERE tc.thread_partner_type_id = tpt.id
+						AND tc.is_active = TRUE
+						AND tc.status = 'ACTIVE'
+						AND tc.deleted_at IS NULL
+						ORDER BY tc.joined_at ASC
+						LIMIT 1
+					) ELSE NULL END
 				   ) ORDER BY pt.name
 				 ) AS partner_types
 		  FROM thread_partner_types tpt
@@ -791,7 +807,23 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 				'is_active', tpt.is_active,
 				'created_at', tpt.created_at,
 				'updated_at', tpt.updated_at,
-				'partner_type_id', tpt.partner_type_id
+				'partner_type_id', tpt.partner_type_id,
+				'partner_profile',
+						CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
+						SELECT jsonb_build_object(
+							'name', COALESCE(prof.name,''),
+							'name_alias', COALESCE(prof.name_alias,''),
+							'avatar', COALESCE(prof.avatar,'')
+						)
+						FROM thread_collaborators tc
+						JOIN profiles prof ON prof.user_id = tc.user_id
+						WHERE tc.thread_partner_type_id = tpt.id
+						AND tc.is_active = TRUE
+						AND tc.status = 'ACTIVE'
+						AND tc.deleted_at IS NULL
+						ORDER BY tc.joined_at ASC
+						LIMIT 1
+					) ELSE NULL END
 				) ORDER BY pt.name
 			) AS partner_types
 		FROM thread_partner_types tpt
@@ -1189,7 +1221,23 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 					 'amount_fulfilled', tpt.amount_fulfilled,
 					 'is_active', tpt.is_active,
 					 'created_at', tpt.created_at,
-					 'updated_at', tpt.updated_at
+					 'updated_at', tpt.updated_at,
+					 'partner_profile',
+						CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
+						SELECT jsonb_build_object(
+							'name', COALESCE(prof.name,''),
+							'name_alias', COALESCE(prof.name_alias,''),
+							'avatar', COALESCE(prof.avatar,'')
+						)
+						FROM thread_collaborators tc
+						JOIN profiles prof ON prof.user_id = tc.user_id
+						WHERE tc.thread_partner_type_id = tpt.id
+						AND tc.is_active = TRUE
+						AND tc.status = 'ACTIVE'
+						AND tc.deleted_at IS NULL
+						ORDER BY tc.joined_at ASC
+						LIMIT 1
+					) ELSE NULL END
 				   ) ORDER BY pt.name
 				 ) AS partner_types
 		  FROM thread_partner_types tpt
@@ -1455,7 +1503,23 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 						'amount_fulfilled', tpt.amount_fulfilled,
 						'is_active', tpt.is_active,
 						'created_at', tpt.created_at,
-						'updated_at', tpt.updated_at
+						'updated_at', tpt.updated_at,
+						'partner_profile',
+							CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
+							SELECT jsonb_build_object(
+								'name', COALESCE(prof.name,''),
+								'name_alias', COALESCE(prof.name_alias,''),
+								'avatar', COALESCE(prof.avatar,'')
+							)
+							FROM thread_collaborators tc
+							JOIN profiles prof ON prof.user_id = tc.user_id
+							WHERE tc.thread_partner_type_id = tpt.id
+							AND tc.is_active = TRUE
+							AND tc.status = 'ACTIVE'
+							AND tc.deleted_at IS NULL
+							ORDER BY tc.joined_at ASC
+							LIMIT 1
+						) ELSE NULL END
 						) ORDER BY pt.name
 					) AS partner_types
 				FROM thread_partner_types tpt

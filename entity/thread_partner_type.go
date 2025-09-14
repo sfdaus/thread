@@ -20,19 +20,20 @@ type ThreadPartnerType struct {
 }
 
 type SecurePartnerType struct {
-	ID                   string  `json:"id"`
-	Name                 string  `json:"name"`
-	CompensationType     string  `json:"compensation_type"`
-	CompensationValue    float64 `json:"compensation_value"`
-	CompensationCurrency string  `json:"compensation_currency"`
-	CompensationPeriod   string  `json:"compensation_period"`
-	CompensationNote     string  `json:"compensation_note"`
-	AmountNeeded         int64   `json:"amount_needed"`
-	AmountFulfilled      int64   `json:"amount_fulfilled"`
-	IsActive             bool    `json:"is_active"`
-	CreatedAt            int64   `json:"created_at"`
-	UpdatedAt            int64   `json:"updated_at"`
-	PartnerTypeID        string  `json:"partner_type_id"`
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	CompensationType     string         `json:"compensation_type"`
+	CompensationValue    float64        `json:"compensation_value"`
+	CompensationCurrency string         `json:"compensation_currency"`
+	CompensationPeriod   string         `json:"compensation_period"`
+	CompensationNote     string         `json:"compensation_note"`
+	AmountNeeded         int64          `json:"amount_needed"`
+	PartnerProfile       *SimpleProfile `json:"partner_profile"`
+	AmountFulfilled      int64          `json:"amount_fulfilled"`
+	IsActive             bool           `json:"is_active"`
+	CreatedAt            int64          `json:"created_at"`
+	UpdatedAt            int64          `json:"updated_at"`
+	PartnerTypeID        string         `json:"partner_type_id"`
 }
 
 type UpdateThreadPartnerType struct {
