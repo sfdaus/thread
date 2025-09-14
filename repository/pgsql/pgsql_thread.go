@@ -1222,6 +1222,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 					 'is_active', tpt.is_active,
 					 'created_at', tpt.created_at,
 					 'updated_at', tpt.updated_at,
+					 'partner_type_id', tpt.partner_type_id,
 					 'partner_profile',
 						CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
 						SELECT jsonb_build_object(
@@ -1504,6 +1505,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 						'is_active', tpt.is_active,
 						'created_at', tpt.created_at,
 						'updated_at', tpt.updated_at,
+					 	'partner_type_id', tpt.partner_type_id,
 						'partner_profile',
 							CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
 							SELECT jsonb_build_object(
