@@ -3,14 +3,15 @@ package s3
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/minio/minio-go/v7"
 	"mime"
 	"mime/multipart"
 	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
 )
 
 type Client struct {
@@ -94,7 +95,7 @@ func (r *s3Repository) GetPresignedURL(
 ) (string, error) {
 
 	if filename == "" {
-		return "", fmt.Errorf("s3: filename (object key) is empty")
+		return "", nil
 	}
 
 	// Normalisasi key agar tidak ada leading slash
@@ -123,7 +124,7 @@ func (r *s3Repository) GetDownloadURL(
 	expiry time.Duration,
 ) (string, error) {
 	if filename == "" {
-		return "", fmt.Errorf("s3: filename (object key) is empty")
+		return "", nil
 	}
 	key := strings.TrimLeft(filename, "/")
 	if expiry <= 0 {
