@@ -406,6 +406,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
+	res.PartnerTypes = tempThread.PartnerTypes
 	res.Profile = tempThread.Profile
 
 	// Thread Attachments - get presigned url
@@ -425,17 +426,6 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, true, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
-	}
-
-	// Partners Attachments - get presigned url
-	for _, partner := range tempThread.PartnerTypes {
-		if partner.PartnerProfile != nil {
-			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, true, time.Duration(24*time.Hour))
-			if err != nil {
-				return res, err
-			}
-		}
-		res.PartnerTypes = append(res.PartnerTypes, partner)
 	}
 
 	res.CommentCount = tempThread.CommentCount
@@ -643,6 +633,7 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 	}
 	res.Tags = tempThread.Tags
 	res.Institutions = tempThread.Institutions
+	res.PartnerTypes = tempThread.PartnerTypes
 	res.Profile = tempThread.Profile
 
 	// Thread Attachments - get presigned url
@@ -662,17 +653,6 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, true, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
-	}
-
-	// Partners Attachments - get presigned url
-	for _, partner := range tempThread.PartnerTypes {
-		if partner.PartnerProfile != nil {
-			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, true, time.Duration(24*time.Hour))
-			if err != nil {
-				return res, err
-			}
-		}
-		res.PartnerTypes = append(res.PartnerTypes, partner)
 	}
 
 	return
@@ -787,6 +767,36 @@ func (u *threadUsecase) ThreadStats(c context.Context, request *request.ThreadSt
 	defer cancel()
 
 	res, err = u.threadRepo.ThreadStats(ctx, request)
+
+	return
+}
+
+func (u *threadUsecase) ThreadFollowActivities(c context.Context, request *request.ThreadFollowActivitiesReq) (res []response.ThreadFollowActivitiesRes, meta response.MetaRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	res, meta, err = u.threadRepo.ThreadFollowActivities(ctx, request)
+
+	for i, r := range res {
+		// Profile Attachments - get presigned url
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, meta, err
+		}
+
+		// Thread Attachments - get presigned url
+		for _, attachment := range r.Attachments {
+			attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return res, meta, err
+			}
+			attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return res, meta, err
+			}
+			res[i].Attachments = append(res[i].Attachments, attachment)
+		}
+	}
 
 	return
 }
