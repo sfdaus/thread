@@ -260,3 +260,17 @@ func (request ThreadStatsReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Thread Activities Follow request
+type ThreadFollowActivitiesReq struct {
+	PerPage int64 `query:"per_page"`
+	Page    int64 `query:"page"`
+	UserID  string
+}
+
+func (request ThreadFollowActivitiesReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
