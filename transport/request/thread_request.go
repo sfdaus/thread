@@ -274,3 +274,31 @@ func (request ThreadFollowActivitiesReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Thread Activities Upvote request
+type ThreadUpvoteActivitiesReq struct {
+	PerPage int64 `query:"per_page"`
+	Page    int64 `query:"page"`
+	UserID  string
+}
+
+func (request ThreadUpvoteActivitiesReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
+
+// Thread Activities Comment request
+type ThreadCommentActivitiesReq struct {
+	PerPage int64 `query:"per_page"`
+	Page    int64 `query:"page"`
+	UserID  string
+}
+
+func (request ThreadCommentActivitiesReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.UserID, validation.Required),
+	)
+}

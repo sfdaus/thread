@@ -785,16 +785,73 @@ func (u *threadUsecase) ThreadFollowActivities(c context.Context, request *reque
 		}
 
 		// Thread Attachments - get presigned url
-		for _, attachment := range r.Attachments {
-			attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		for i, attachment := range r.Attachments {
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
-			attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
-			res[i].Attachments = append(res[i].Attachments, attachment)
+		}
+	}
+
+	return
+}
+
+func (u *threadUsecase) ThreadUpvoteActivities(c context.Context, request *request.ThreadUpvoteActivitiesReq) (res []response.ThreadUpvoteActivitiesRes, meta response.MetaRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	res, meta, err = u.threadRepo.ThreadUpvoteActivities(ctx, request)
+
+	for i, r := range res {
+		// Profile Attachments - get presigned url
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, meta, err
+		}
+
+		// Thread Attachments - get presigned url
+		for i, attachment := range r.Attachments {
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return res, meta, err
+			}
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return res, meta, err
+			}
+		}
+	}
+
+	return
+}
+
+func (u *threadUsecase) ThreadCommentActivities(c context.Context, request *request.ThreadCommentActivitiesReq) (res []response.ThreadCommentActivitiesRes, meta response.MetaRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	res, meta, err = u.threadRepo.ThreadCommentActivities(ctx, request)
+
+	for i, r := range res {
+		// Profile Attachments - get presigned url
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return res, meta, err
+		}
+
+		// Thread Attachments - get presigned url
+		for i, attachment := range r.Attachments {
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return res, meta, err
+			}
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return res, meta, err
+			}
 		}
 	}
 
