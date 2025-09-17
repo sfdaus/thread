@@ -484,6 +484,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		  COALESCE(p.name,'')        AS prof_name,
 		  COALESCE(p.name_alias,'')  AS prof_name_alias,
 		  COALESCE(p.avatar,'') AS prof_avatar,
+		  COALESCE(u.public_id,'') AS prof_public_id,
 
 		  -- institution inside profile
 		  COALESCE(i.name,'')  AS prof_inst_name,
@@ -498,6 +499,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		FROM threads t
 		LEFT JOIN profiles p     ON p.user_id = t.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
+		LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 
 		-- comments
 		LEFT JOIN LATERAL (
@@ -601,6 +603,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
+		ProfPublicID  string
 		ProfInstName  string
 		ProfInstAlias string
 		ProfInstType  string
@@ -628,7 +631,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 
 			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
-			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
 
 			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
@@ -666,6 +669,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
 			Avatar:    rrow.ProfAvatar,
+			PublicID:  rrow.ProfPublicID,
 			Institution: entity.Institution{
 				Name:  rrow.ProfInstName,
 				Alias: rrow.ProfInstAlias,
@@ -730,6 +734,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	COALESCE(p.name,'')        AS prof_name,
 	COALESCE(p.name_alias,'')  AS prof_name_alias,
 	COALESCE(p.avatar,'') AS prof_avatar,
+	COALESCE(u.public_id,'') AS prof_public_id,
 
 	-- institution inside profile
 	COALESCE(i.name,'')  AS prof_inst_name,
@@ -744,6 +749,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	FROM threads t
 	LEFT JOIN profiles p     ON p.user_id = t.user_id
 	LEFT JOIN institutions i ON i.id = p.institution_id
+	LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 
 	-- attachments
 	LEFT JOIN LATERAL (
@@ -848,6 +854,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
+		ProfPublicID  string
 		ProfInstName  string
 		ProfInstAlias string
 		ProfInstType  string
@@ -874,7 +881,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
 		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
-		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
+		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar, &row.ProfPublicID,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
 	); err != nil {
@@ -909,6 +916,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
 		Avatar:    row.ProfAvatar,
+		PublicID:  row.ProfPublicID,
 		Institution: entity.Institution{
 			Name:  row.ProfInstName,
 			Alias: row.ProfInstAlias,
@@ -1136,6 +1144,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		  COALESCE(p.name,'')        AS prof_name,
 		  COALESCE(p.name_alias,'')  AS prof_name_alias,
 		  COALESCE(p.avatar,'') AS prof_avatar,
+		  COALESCE(u.public_id,'') AS prof_public_id,
 
 		  -- institution inside profile
 		  COALESCE(i.name,'')  AS prof_inst_name,
@@ -1150,6 +1159,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		FROM threads t
 		LEFT JOIN profiles p     ON p.user_id = t.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
+		LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 
 		-- comments
 		LEFT JOIN LATERAL (
@@ -1253,6 +1263,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
+		ProfPublicID  string
 		ProfInstName  string
 		ProfInstAlias string
 		ProfInstType  string
@@ -1280,7 +1291,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 
 			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
-			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
 
 			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
@@ -1318,6 +1329,7 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
 			Avatar:    rrow.ProfAvatar,
+			PublicID:  rrow.ProfPublicID,
 			Institution: entity.Institution{
 				Name:  rrow.ProfInstName,
 				Alias: rrow.ProfInstAlias,
@@ -1412,6 +1424,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 			COALESCE(p.name,'')        AS prof_name,
 			COALESCE(p.name_alias,'')  AS prof_name_alias,
 			COALESCE(p.avatar,'') AS prof_avatar,
+			COALESCE(u.public_id,'') AS prof_public_id,
 		
 			-- institution inside profile
 			COALESCE(i.name,'')  AS prof_inst_name,
@@ -1426,6 +1439,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 			FROM threads t
 			LEFT JOIN profiles p     ON p.user_id = t.user_id
 			LEFT JOIN institutions i ON i.id = p.institution_id
+			LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 		
 			-- attachments
 			LEFT JOIN LATERAL (
@@ -1530,6 +1544,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
+		ProfPublicID  string
 		ProfInstName  string
 		ProfInstAlias string
 		ProfInstType  string
@@ -1556,7 +1571,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
 		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
-		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar,
+		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar, &row.ProfPublicID,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
 	); err != nil {
@@ -1591,6 +1606,7 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
 		Avatar:    row.ProfAvatar,
+		PublicID:  row.ProfPublicID,
 		Institution: entity.Institution{
 			Name:  row.ProfInstName,
 			Alias: row.ProfInstAlias,
@@ -1803,6 +1819,7 @@ func (r *pgsqlThreadRepository) ThreadFollowActivities(ctx context.Context, requ
 		COALESCE(p.name,'')        AS prof_name,
 		COALESCE(p.name_alias,'')  AS prof_name_alias,
 		COALESCE(p.avatar,'')      AS prof_avatar,
+		COALESCE(u.public_id,'')   AS prof_public_id,
 
 		-- institution inside profile
 		COALESCE(i.name,'')  AS prof_inst_name,
@@ -1821,6 +1838,7 @@ func (r *pgsqlThreadRepository) ThreadFollowActivities(ctx context.Context, requ
 		AND COALESCE(tf.is_active, true)
 	LEFT JOIN profiles p     ON p.user_id = t.user_id
 	LEFT JOIN institutions i ON i.id = p.institution_id
+	LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 
 	-- comments
 	LEFT JOIN LATERAL (
@@ -1910,7 +1928,7 @@ func (r *pgsqlThreadRepository) ThreadFollowActivities(ctx context.Context, requ
 		entity.Thread
 		IsReported, IsUpvoted, IsOwner, IsFollowing                   bool
 		CommentCount                                                  int64
-		ProfName, ProfNameAlias, ProfAvatar                           string
+		ProfName, ProfNameAlias, ProfAvatar, ProfPublicID             string
 		ProfInstName, ProfInstAlias, ProfInstType                     string
 		AttachmentsJSON, TagsJSON, PartnerTypesJSON, InstitutionsJSON []byte
 	}
@@ -1930,7 +1948,7 @@ func (r *pgsqlThreadRepository) ThreadFollowActivities(ctx context.Context, requ
 
 			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
-			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
 
 			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
@@ -1981,6 +1999,7 @@ func (r *pgsqlThreadRepository) ThreadFollowActivities(ctx context.Context, requ
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
 			Avatar:    rrow.ProfAvatar,
+			PublicID:  rrow.ProfPublicID,
 			Institution: entity.Institution{
 				Name:  rrow.ProfInstName,
 				Alias: rrow.ProfInstAlias,
@@ -2068,6 +2087,7 @@ func (r *pgsqlThreadRepository) ThreadUpvoteActivities(ctx context.Context, requ
 		COALESCE(p.name,'')       AS prof_name,
 		COALESCE(p.name_alias,'') AS prof_name_alias,
 		COALESCE(p.avatar,'')     AS prof_avatar,
+		COALESCE(u.public_id,'')  AS prof_public_id,
 
 		-- institution inside profile
 		COALESCE(i.name,'')  AS prof_inst_name,
@@ -2086,6 +2106,7 @@ func (r *pgsqlThreadRepository) ThreadUpvoteActivities(ctx context.Context, requ
 	   AND COALESCE(cl.is_active, true)
 	LEFT JOIN profiles p     ON p.user_id = t.user_id
 	LEFT JOIN institutions i ON i.id = p.institution_id
+	LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 
 	-- comments
 	LEFT JOIN LATERAL (
@@ -2176,7 +2197,7 @@ func (r *pgsqlThreadRepository) ThreadUpvoteActivities(ctx context.Context, requ
 		entity.Thread
 		IsReported, IsUpvoted, IsOwner, IsFollowing                   bool
 		CommentCount                                                  int64
-		ProfName, ProfNameAlias, ProfAvatar                           string
+		ProfName, ProfNameAlias, ProfAvatar, ProfPublicID             string
 		ProfInstName, ProfInstAlias, ProfInstType                     string
 		AttachmentsJSON, TagsJSON, PartnerTypesJSON, InstitutionsJSON []byte
 	}
@@ -2196,7 +2217,7 @@ func (r *pgsqlThreadRepository) ThreadUpvoteActivities(ctx context.Context, requ
 
 			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
-			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
 
 			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
@@ -2246,6 +2267,7 @@ func (r *pgsqlThreadRepository) ThreadUpvoteActivities(ctx context.Context, requ
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
 			Avatar:    rrow.ProfAvatar,
+			PublicID:  rrow.ProfPublicID,
 			Institution: entity.Institution{
 				Name:  rrow.ProfInstName,
 				Alias: rrow.ProfInstAlias,
@@ -2346,6 +2368,7 @@ func (r *pgsqlThreadRepository) ThreadCommentActivities(ctx context.Context, req
 		COALESCE(p.name,'')       AS prof_name,
 		COALESCE(p.name_alias,'') AS prof_name_alias,
 		COALESCE(p.avatar,'')     AS prof_avatar,
+		COALESCE(u.public_id,'')  AS prof_public_id,
 
 		-- institution di profile
 		COALESCE(i.name,'')  AS prof_inst_name,
@@ -2361,6 +2384,7 @@ func (r *pgsqlThreadRepository) ThreadCommentActivities(ctx context.Context, req
 	JOIN threads t         ON t.id = lc.thread_id
 	LEFT JOIN profiles p   ON p.user_id = t.user_id
 	LEFT JOIN institutions i ON i.id = p.institution_id
+	LEFT JOIN users u ON u.id = t.user_id AND u.is_active = true
 
 	-- comments (total)
 	LEFT JOIN LATERAL (
@@ -2449,7 +2473,7 @@ func (r *pgsqlThreadRepository) ThreadCommentActivities(ctx context.Context, req
 		entity.Thread
 		IsReported, IsUpvoted, IsOwner, IsFollowing                   bool
 		CommentCount                                                  int64
-		ProfName, ProfNameAlias, ProfAvatar                           string
+		ProfName, ProfNameAlias, ProfAvatar, ProfPublicID             string
 		ProfInstName, ProfInstAlias, ProfInstType                     string
 		AttachmentsJSON, TagsJSON, PartnerTypesJSON, InstitutionsJSON []byte
 	}
@@ -2469,7 +2493,7 @@ func (r *pgsqlThreadRepository) ThreadCommentActivities(ctx context.Context, req
 
 			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
-			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
 
 			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
@@ -2519,6 +2543,7 @@ func (r *pgsqlThreadRepository) ThreadCommentActivities(ctx context.Context, req
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
 			Avatar:    rrow.ProfAvatar,
+			PublicID:  rrow.ProfPublicID,
 			Institution: entity.Institution{
 				Name:  rrow.ProfInstName,
 				Alias: rrow.ProfInstAlias,
@@ -2673,6 +2698,7 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 			COALESCE(p.name,'')       AS prof_name,
 			COALESCE(p.name_alias,'') AS prof_name_alias,
 			COALESCE(p.avatar,'')     AS prof_avatar,
+			COALESCE(u.public_id,'')  AS prof_public_id,
 
 			-- institution inside profile
 			COALESCE(i.name,'')  AS prof_inst_name,
@@ -2790,6 +2816,7 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 		ProfName      string
 		ProfNameAlias string
 		ProfAvatar    string
+		ProfPublicID  string
 		ProfInstName  string
 		ProfInstAlias string
 		ProfInstType  string
@@ -2816,7 +2843,7 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 
 			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
 
-			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
 
 			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
@@ -2865,6 +2892,7 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
 			Avatar:    rrow.ProfAvatar,
+			PublicID:  rrow.ProfPublicID,
 			Institution: entity.Institution{
 				Name:  rrow.ProfInstName,
 				Alias: rrow.ProfInstAlias,
