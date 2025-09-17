@@ -1710,7 +1710,8 @@ func (r *pgsqlThreadRepository) ThreadStats(ctx context.Context, request *reques
 				JOIN threads t ON t.id = tpt.thread_id
 				WHERE t.user_id = $1
 				  AND t.is_active = TRUE
-				  AND t.status = $2`
+				  AND t.status = $2
+				  AND t.deadline > NOW()`
 
 	sc = tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
 	if err = sc.Scan(&partnersNeededOpen); err != nil {
