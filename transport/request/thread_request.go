@@ -302,3 +302,20 @@ func (request ThreadCommentActivitiesReq) Validate() error {
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
+
+// Get My Thread request body
+type GetThreadByAuthorReq struct {
+	PublicID string `param:"public_id"`
+	Title    string `query:"title"`
+	Status   string `query:"status"`
+	IsActive *bool  `query:"is_active"`
+	PerPage  int64  `query:"per_page"`
+	Page     int64  `query:"page"`
+}
+
+func (request GetThreadByAuthorReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.PublicID, validation.Required),
+	)
+}

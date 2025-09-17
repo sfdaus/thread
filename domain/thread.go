@@ -29,6 +29,7 @@ type ThreadRepository interface {
 	ThreadFollowActivities(ctx context.Context, request *request.ThreadFollowActivitiesReq) ([]response.ThreadFollowActivitiesRes, response.MetaRes, error)
 	ThreadUpvoteActivities(ctx context.Context, request *request.ThreadUpvoteActivitiesReq) ([]response.ThreadUpvoteActivitiesRes, response.MetaRes, error)
 	ThreadCommentActivities(ctx context.Context, request *request.ThreadCommentActivitiesReq) ([]response.ThreadCommentActivitiesRes, response.MetaRes, error)
+	GetThreadByAuthor(ctx context.Context, request *request.GetThreadByAuthorReq) ([]response.GetThreadByAuthorRes, response.MetaRes, error)
 }
 
 // ThreadUsecase represent the todos usecase contract
@@ -50,4 +51,5 @@ type ThreadUsecase interface {
 	ThreadFollowActivities(ctx context.Context, request *request.ThreadFollowActivitiesReq) ([]response.ThreadFollowActivitiesRes, response.MetaRes, error)
 	ThreadUpvoteActivities(ctx context.Context, request *request.ThreadUpvoteActivitiesReq) ([]response.ThreadUpvoteActivitiesRes, response.MetaRes, error)
 	ThreadCommentActivities(ctx context.Context, request *request.ThreadCommentActivitiesReq) ([]response.ThreadCommentActivitiesRes, response.MetaRes, error)
+	GetThreadByAuthor(ctx context.Context, request *request.GetThreadByAuthorReq) ([]response.GetThreadByAuthorRes, response.MetaRes, error)
 }
