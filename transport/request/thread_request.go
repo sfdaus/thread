@@ -319,3 +319,16 @@ func (request GetThreadByAuthorReq) Validate() error {
 		validation.Field(&request.PublicID, validation.Required),
 	)
 }
+
+// Thread Stats by ID request
+type ThreadStatsByIDReq struct {
+	PublicID string `param:"public_id"`
+	UserID   string
+}
+
+func (request ThreadStatsByIDReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
