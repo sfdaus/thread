@@ -857,3 +857,32 @@ func (u *threadUsecase) ThreadCommentActivities(c context.Context, request *requ
 
 	return
 }
+
+func (u *threadUsecase) GetThreadByAuthor(c context.Context, request *request.GetThreadByAuthorReq) (threads []response.GetThreadByAuthorRes, meta response.MetaRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	threads, meta, err = u.threadRepo.GetThreadByAuthor(ctx, request)
+
+	for i, r := range threads {
+		// Profile Attachments - get presigned url
+		threads[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		if err != nil {
+			return threads, meta, err
+		}
+
+		// Thread Attachments - get presigned url
+		for i, attachment := range r.Attachments {
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return threads, meta, err
+			}
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			if err != nil {
+				return threads, meta, err
+			}
+		}
+	}
+
+	return
+}

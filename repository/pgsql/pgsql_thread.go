@@ -2547,3 +2547,350 @@ func (r *pgsqlThreadRepository) ThreadCommentActivities(ctx context.Context, req
 	}
 	return
 }
+
+func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *request.GetThreadByAuthorReq) (res []response.GetThreadByAuthorRes, meta response.MetaRes, err error) {
+	// ---------------------------
+	// 0) Base filters (author public_id)
+	// ---------------------------
+	args := []interface{}{request.PublicID} // $1 = author public_id
+	wheres := []string{
+		"u.public_id = $1",
+	}
+	idx := 2
+
+	// Optional filters
+	if request.Title != "" {
+		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
+		args = append(args, "%"+request.Title+"%")
+		idx++
+	}
+	if request.Status != "" {
+		wheres = append(wheres, fmt.Sprintf("t.status = $%d", idx))
+		args = append(args, request.Status)
+		idx++
+	}
+	if request.IsActive != nil {
+		wheres = append(wheres, fmt.Sprintf("t.is_active = $%d", idx))
+		args = append(args, request.IsActive)
+		idx++
+	}
+
+	whereSQL := ""
+	if len(wheres) > 0 {
+		whereSQL = "WHERE " + strings.Join(wheres, " AND ")
+	}
+
+	// ---------------------------
+	// 1) COUNT (gunakan hanya filter args)
+	// ---------------------------
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM threads t
+		JOIN users u ON u.id = t.user_id
+		%s
+	`, whereSQL)
+
+	if err = r.db.QueryRowContext(ctx, countQuery, args...).Scan(&meta.TotalData); err != nil {
+		return nil, meta, err
+	}
+
+	// ---------------------------
+	// 2) Pagination
+	// ---------------------------
+	perPage := request.PerPage
+	if perPage <= 0 {
+		perPage = 10
+	}
+	page := request.Page
+	if page <= 0 {
+		page = 1
+	}
+	meta.Page = page
+	meta.PerPage = perPage
+	meta.TotalPages = (meta.TotalData + perPage - 1) / perPage
+
+	offset := (page - 1) * perPage
+
+	// ---------------------------
+	// 3) Tambahkan viewer public_id (untuk flags) SETELAH count
+	// ---------------------------
+	// Catatan: kalau ada field ViewerPublicID di request, pakai itu.
+	// Untuk sekarang, reuse author public_id supaya tetap jalan.
+	viewerPublicID := request.PublicID
+
+	viewerPubIDPos := idx
+	args = append(args, viewerPublicID) // $idx = viewer public_id
+	idx++
+
+	// Tambahkan LIMIT & OFFSET
+	limitPos := idx
+	offsetPos := idx + 1
+	args = append(args, perPage, offset)
+	idx += 2
+
+	// ---------------------------
+	// 4) Data query
+	// ---------------------------
+	query := fmt.Sprintf(`
+		SELECT
+			-- thread
+			t.id, t.user_id, t.title, t.type, t.description, t.status,
+			t.upvote_number, t.report_number, t.followed_number, t.deadline, t.slug,
+			t.is_active, t.created_by, t.created_at, t.updated_by, t.updated_at, t.deleted_at,
+
+			-- flags terhadap viewer
+			(SELECT EXISTS (
+				SELECT 1
+				FROM content_likes clx
+				WHERE clx.thread_id = t.id
+				  AND clx.user_id = (SELECT id FROM users WHERE public_id = $%d)
+				  AND COALESCE(clx.is_active, true)
+			)) AS is_upvoted,
+
+			(SELECT EXISTS (
+				SELECT 1
+				FROM content_reports crx
+				WHERE crx.thread_id = t.id
+				  AND crx.reporter_id = (SELECT id FROM users WHERE public_id = $%d)
+				  AND COALESCE(crx.is_active, true)
+			)) AS is_reported,
+
+			false AS is_owner,
+
+			( (t.user_id = (SELECT id FROM users WHERE public_id = $%d))
+			  OR EXISTS (
+					SELECT 1
+					FROM thread_follows tf
+					WHERE tf.thread_id = t.id
+					  AND tf.user_id = (SELECT id FROM users WHERE public_id = $%d)
+			  )
+			) AS is_following,
+
+			-- comment count
+			COALESCE(jc.comment_count, 0) AS comment_count,
+
+			-- profile
+			COALESCE(p.name,'')       AS prof_name,
+			COALESCE(p.name_alias,'') AS prof_name_alias,
+			COALESCE(p.avatar,'')     AS prof_avatar,
+
+			-- institution inside profile
+			COALESCE(i.name,'')  AS prof_inst_name,
+			COALESCE(i.alias,'') AS prof_inst_alias,
+			COALESCE(i.type,'')  AS prof_inst_type,
+
+			-- aggregates
+			COALESCE(ja.attachments,'[]'::jsonb)     AS attachments,
+			COALESCE(jtg.tags,'[]'::jsonb)           AS tags,
+			COALESCE(jpt.partner_types,'[]'::jsonb)  AS partner_types,
+			COALESCE(ji.institutions,'[]'::jsonb)    AS institutions
+
+		FROM threads t
+		JOIN users u            ON u.id = t.user_id
+		LEFT JOIN profiles p    ON p.user_id = t.user_id
+		LEFT JOIN institutions i ON i.id = p.institution_id
+
+		-- comments
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) AS comment_count
+			FROM comments c
+			WHERE c.thread_id = t.id
+			  AND COALESCE(c.is_active, true)
+			  AND c.deleted_at IS NULL
+		) jc ON true
+
+		-- attachments
+		LEFT JOIN LATERAL (
+			SELECT jsonb_agg(
+				jsonb_build_object(
+					'id', ta.id,
+					'file_name', ta.file_name, 'file_url', ta.file_url, 'file_type', ta.file_type,
+					'is_active', ta.is_active, 'created_at', ta.created_at, 'updated_at', ta.updated_at
+				) ORDER BY ta.created_at DESC
+			) AS attachments
+			FROM thread_attachments ta
+			WHERE ta.thread_id = t.id AND ta.is_active = true
+		) ja ON true
+
+		-- tags
+		LEFT JOIN LATERAL (
+			SELECT jsonb_agg(
+				jsonb_build_object(
+					'id', tg.id,
+					'name', tg.name,
+					'description', tg.description,
+					'is_active', tt.is_active, 'created_at', tt.created_at, 'updated_at', tt.updated_at
+				) ORDER BY tg.name
+			) AS tags
+			FROM thread_tags tt
+			JOIN tags tg ON tg.id = tt.tag_id
+			WHERE tt.thread_id = t.id AND tt.is_active = true
+		) jtg ON true
+
+		-- partner types
+		LEFT JOIN LATERAL (
+			SELECT jsonb_agg(
+				jsonb_build_object(
+					'id', tpt.id,
+					'name', pt.name,
+					'compensation_type', ct.name,
+					'compensation_value', tpt.compensation_value,
+					'compensation_currency', tpt.compensation_currency,
+					'compensation_period', tpt.compensation_period,
+					'compensation_note', tpt.compensation_note,
+					'amount_needed', tpt.amount_needed,
+					'amount_fulfilled', tpt.amount_fulfilled,
+					'is_active', tpt.is_active,
+					'created_at', tpt.created_at,
+					'updated_at', tpt.updated_at,
+					'partner_type_id', tpt.partner_type_id
+				) ORDER BY pt.name
+			) AS partner_types
+			FROM thread_partner_types tpt
+			JOIN partner_types pt ON pt.id = tpt.partner_type_id
+			LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type
+			WHERE tpt.thread_id = t.id AND tpt.is_active = true
+		) jpt ON true
+
+		-- institutions on thread
+		LEFT JOIN LATERAL (
+			SELECT jsonb_agg(
+				jsonb_build_object(
+					'id', i2.id,
+					'name', i2.name,
+					'alias', i2.alias,
+					'type', i2.type,
+					'is_active', ti.is_active, 'created_at', ti.created_at, 'updated_at', ti.updated_at
+				) ORDER BY i2.name
+			) AS institutions
+			FROM thread_institutions ti
+			JOIN institutions i2 ON i2.id = ti.institution_id
+			WHERE ti.thread_id = t.id AND ti.is_active = true
+		) ji ON true
+
+		%s
+		ORDER BY t.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, whereSQL, limitPos, offsetPos)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, meta, err
+	}
+	defer rows.Close()
+
+	type listRow struct {
+		entity.Thread
+		IsReported   bool
+		IsUpvoted    bool
+		IsOwner      bool
+		IsFollowing  bool
+		CommentCount int64
+
+		ProfName      string
+		ProfNameAlias string
+		ProfAvatar    string
+		ProfInstName  string
+		ProfInstAlias string
+		ProfInstType  string
+
+		AttachmentsJSON  []byte
+		TagsJSON         []byte
+		PartnerTypesJSON []byte
+		InstitutionsJSON []byte
+	}
+
+	for rows.Next() {
+		var rrow listRow
+		var (
+			deadlineNT  sql.NullTime
+			updatedByNS sql.NullString
+			updatedAtNT sql.NullInt64
+			deletedAtNT sql.NullInt64
+		)
+
+		if err := rows.Scan(
+			&rrow.ID, &rrow.UserID, &rrow.Title, pq.Array(&rrow.Type), &rrow.Description, &rrow.Status,
+			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
+			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
+
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
+
+			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar,
+			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
+
+			&rrow.AttachmentsJSON, &rrow.TagsJSON, &rrow.PartnerTypesJSON, &rrow.InstitutionsJSON,
+		); err != nil {
+			return nil, meta, err
+		}
+
+		// Map nullable
+		if deadlineNT.Valid {
+			rrow.Deadline = &deadlineNT.Time
+		} else {
+			rrow.Deadline = nil
+		}
+		if updatedByNS.Valid {
+			rrow.UpdatedBy = updatedByNS.String
+		} else {
+			rrow.UpdatedBy = ""
+		}
+		if !updatedAtNT.Valid {
+			rrow.UpdatedAt = 0
+		}
+		if deletedAtNT.Valid {
+			rrow.DeletedAt = deletedAtNT.Int64
+		} else {
+			rrow.DeletedAt = 0
+		}
+
+		var out response.GetThreadByAuthorRes
+		out.ID = rrow.ID
+		out.Title = rrow.Title
+		out.Type = rrow.Type
+		out.Description = rrow.Description
+		out.Status = rrow.Status
+		out.UpvoteNumber = rrow.UpvoteNumber
+		out.ReportNumber = rrow.ReportNumber
+		out.FollowedNumber = rrow.FollowedNumber
+		out.Deadline = rrow.Deadline
+		out.Slug = rrow.Slug
+		out.IsUpvoted = rrow.IsUpvoted
+		out.IsReported = rrow.IsReported
+		out.IsActive = rrow.IsActive
+		out.UpdatedAt = rrow.UpdatedAt
+		out.IsOwner = rrow.IsOwner
+		out.IsFollowing = rrow.IsFollowing
+		out.Profile = entity.Profile{
+			Name:      rrow.ProfName,
+			NameAlias: rrow.ProfNameAlias,
+			Avatar:    rrow.ProfAvatar,
+			Institution: entity.Institution{
+				Name:  rrow.ProfInstName,
+				Alias: rrow.ProfInstAlias,
+				Type:  rrow.ProfInstType,
+			},
+		}
+		out.CommentCount = rrow.CommentCount
+
+		if err := json.Unmarshal(rrow.AttachmentsJSON, &out.Attachments); err != nil {
+			return nil, meta, err
+		}
+		if err := json.Unmarshal(rrow.TagsJSON, &out.Tags); err != nil {
+			return nil, meta, err
+		}
+		if err := json.Unmarshal(rrow.PartnerTypesJSON, &out.PartnerTypes); err != nil {
+			return nil, meta, err
+		}
+		if err := json.Unmarshal(rrow.InstitutionsJSON, &out.Institutions); err != nil {
+			return nil, meta, err
+		}
+
+		res = append(res, out)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, meta, err
+	}
+
+	return
+}
