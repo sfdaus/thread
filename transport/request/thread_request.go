@@ -311,12 +311,14 @@ type GetThreadByAuthorReq struct {
 	IsActive *bool  `query:"is_active"`
 	PerPage  int64  `query:"per_page"`
 	Page     int64  `query:"page"`
+	UserID   string
 }
 
 func (request GetThreadByAuthorReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.PublicID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 

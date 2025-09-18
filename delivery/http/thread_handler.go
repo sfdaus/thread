@@ -543,6 +543,8 @@ func (h *ThreadHandler) GetThreadByAuthor(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -561,18 +563,20 @@ func (h *ThreadHandler) GetThreadByAuthor(c echo.Context) error {
 
 func (h *ThreadHandler) ThreadStatsByID(c echo.Context) error {
 	ctx := c.Request().Context()
-	var req request.ThreadStatsReq
+	var req request.ThreadStatsByIDReq
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+	
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
 	}
 
-	if res, err := h.ThreadUC.ThreadStats(ctx, &req); err != nil {
+	if res, err := h.ThreadUC.ThreadStatsByID(ctx, &req); err != nil {
 		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Thread Stats By ID Failed"))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{

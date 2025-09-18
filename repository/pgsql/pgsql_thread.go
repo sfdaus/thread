@@ -2922,3 +2922,78 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 
 	return
 }
+
+func (r *pgsqlThreadRepository) ThreadStatsByID(ctx context.Context, request *request.ThreadStatsByIDReq) (res response.ThreadStatsByIDRes, err error) {
+	// Read-only, tapi kalau kamu pengin konsistensi snapshot, boleh pakai tx seperti ini
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// 1) Ideas Shared = jumlah thread "submitted" milik user (berdasarkan public_id)
+	var ideasShared int64
+	q1 := `
+		SELECT COUNT(*)
+		FROM threads t
+		JOIN users u ON u.id = t.user_id AND u.is_active = TRUE
+		WHERE u.public_id = $1
+		  AND t.is_active = TRUE
+		  AND t.status = $2;
+	`
+	if err = tx.QueryRowContext(ctx, q1, request.PublicID, utils.ThreadStatus["submitted"]).Scan(&ideasShared); err != nil {
+		return res, err
+	}
+
+	// 2) Partners Needed (open) = sum(max(needed - fulfilled, 0)) untuk thread aktif & belum lewat deadline
+	var partnersNeededOpen int64
+	q2 := `
+		SELECT COALESCE(
+			SUM(
+				GREATEST(
+					COALESCE(tpt.amount_needed, 0) - COALESCE(tpt.amount_fulfilled, 0),
+					0
+				)
+			),
+		0) AS partners_needed_open
+		FROM thread_partner_types tpt
+		JOIN threads t ON t.id = tpt.thread_id
+		JOIN users u   ON u.id = t.user_id AND u.is_active = TRUE
+		WHERE u.public_id = $1
+		  AND t.is_active = TRUE
+		  AND t.status = $2
+		  AND t.deadline > NOW();
+	`
+	if err = tx.QueryRowContext(ctx, q2, request.PublicID, utils.ThreadStatus["submitted"]).Scan(&partnersNeededOpen); err != nil {
+		return res, err
+	}
+
+	// 3) Active Projects = jumlah thread aktif & submitted & (deadline null atau di masa depan)
+	var activeProjects int64
+	q3 := `
+		SELECT COUNT(*) AS active_projects
+		FROM threads t
+		JOIN users u ON u.id = t.user_id AND u.is_active = TRUE
+		WHERE u.public_id = $1
+		  AND t.is_active = TRUE
+		  AND t.status = $2
+		  AND (t.deadline IS NULL OR t.deadline > NOW());
+	`
+	if err = tx.QueryRowContext(ctx, q3, request.PublicID, utils.ThreadStatus["submitted"]).Scan(&activeProjects); err != nil {
+		return res, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return
+	}
+
+	res.IdeasShared = ideasShared
+	res.PartnersNeededOpen = partnersNeededOpen
+	res.ActiveProjects = activeProjects
+
+	return
+}
