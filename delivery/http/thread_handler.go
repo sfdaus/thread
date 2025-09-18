@@ -42,6 +42,7 @@ func NewThreadHandler(e *echo.Echo, middleware *middleware.Middleware, threadUC 
 	apiV1.GET("/threads/activities/upvote", handler.ThreadUpvoteActivities)
 	apiV1.GET("/threads/activities/comment", handler.ThreadCommentActivities)
 	apiV1.GET("/threads/by-author/:public_id", handler.GetThreadByAuthor)
+	apiV1.GET("/threads/:public_id/stats", handler.ThreadStatsByID)
 }
 
 func (h *ThreadHandler) Create(c echo.Context) error {
@@ -542,6 +543,8 @@ func (h *ThreadHandler) GetThreadByAuthor(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -554,6 +557,31 @@ func (h *ThreadHandler) GetThreadByAuthor(c echo.Context) error {
 			"message": "Thread by author successfully retrieved",
 			"data":    res,
 			"meta":    meta,
+		})
+	}
+}
+
+func (h *ThreadHandler) ThreadStatsByID(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.ThreadStatsByIDReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
+	
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if res, err := h.ThreadUC.ThreadStatsByID(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpErrorToBasicResponse(err, "Get Thread Stats By ID Failed"))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Thread statistics by ID successfully retrieved",
+			"data":    res,
 		})
 	}
 }

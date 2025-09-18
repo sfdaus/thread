@@ -886,3 +886,12 @@ func (u *threadUsecase) GetThreadByAuthor(c context.Context, request *request.Ge
 
 	return
 }
+
+func (u *threadUsecase) ThreadStatsByID(c context.Context, request *request.ThreadStatsByIDReq) (res response.ThreadStatsByIDRes, err error) {
+	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
+	defer cancel()
+
+	res, err = u.threadRepo.ThreadStatsByID(ctx, request)
+
+	return
+}
