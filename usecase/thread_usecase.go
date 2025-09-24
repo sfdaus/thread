@@ -411,11 +411,11 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 
 	// Thread Attachments - get presigned url
 	for _, attachment := range tempThread.Attachments {
-		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
-		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
@@ -423,7 +423,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 	}
 
 	// Profile Attachments - get presigned url
-	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, true, time.Duration(24*time.Hour))
+	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, false, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
 	}
@@ -477,11 +477,11 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 
 	// Thread Attachments - get presigned url
 	for _, attachment := range tempThread.Attachments {
-		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
-		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
@@ -489,7 +489,7 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 	}
 
 	// Profile Attachments - get presigned url
-	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, true, time.Duration(24*time.Hour))
+	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, false, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
 	}
@@ -497,7 +497,7 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 	// Partners Attachments - get presigned url
 	for _, partner := range tempThread.PartnerTypes {
 		if partner.PartnerProfile != nil {
-			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, true, time.Duration(24*time.Hour))
+			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, err
 			}
@@ -638,11 +638,11 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 
 	// Thread Attachments - get presigned url
 	for _, attachment := range tempThread.Attachments {
-		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
-		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
@@ -650,7 +650,7 @@ func (u *threadUsecase) mapTempToResGetMyThread(tempThread response.GetMyThreadT
 	}
 
 	// Profile Attachments - get presigned url
-	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, true, time.Duration(24*time.Hour))
+	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, false, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
 	}
@@ -703,11 +703,11 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 
 	// Thread Attachments - get presigned url
 	for _, attachment := range tempThread.Attachments {
-		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
-		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+		attachment.FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, err
 		}
@@ -715,7 +715,7 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 	}
 
 	// Profile Attachments - get presigned url
-	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, true, time.Duration(24*time.Hour))
+	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, tempThread.Profile.Avatar, false, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
 	}
@@ -723,7 +723,7 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 	// Partners Attachments - get presigned url
 	for _, partner := range tempThread.PartnerTypes {
 		if partner.PartnerProfile != nil {
-			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, true, time.Duration(24*time.Hour))
+			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, err
 			}
@@ -779,18 +779,18 @@ func (u *threadUsecase) ThreadFollowActivities(c context.Context, request *reque
 
 	for i, r := range res {
 		// Profile Attachments - get presigned url
-		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, meta, err
 		}
 
 		// Thread Attachments - get presigned url
 		for i, attachment := range r.Attachments {
-			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
-			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
@@ -808,18 +808,18 @@ func (u *threadUsecase) ThreadUpvoteActivities(c context.Context, request *reque
 
 	for i, r := range res {
 		// Profile Attachments - get presigned url
-		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, meta, err
 		}
 
 		// Thread Attachments - get presigned url
 		for i, attachment := range r.Attachments {
-			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
-			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
@@ -837,18 +837,18 @@ func (u *threadUsecase) ThreadCommentActivities(c context.Context, request *requ
 
 	for i, r := range res {
 		// Profile Attachments - get presigned url
-		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, meta, err
 		}
 
 		// Thread Attachments - get presigned url
 		for i, attachment := range r.Attachments {
-			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
-			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return res, meta, err
 			}
@@ -866,18 +866,18 @@ func (u *threadUsecase) GetThreadByAuthor(c context.Context, request *request.Ge
 
 	for i, r := range threads {
 		// Profile Attachments - get presigned url
-		threads[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, true, time.Duration(24*time.Hour))
+		threads[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, r.Profile.Avatar, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return threads, meta, err
 		}
 
 		// Thread Attachments - get presigned url
 		for i, attachment := range r.Attachments {
-			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].DownloadUrl, err = u.s3Repo.GetDownloadURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return threads, meta, err
 			}
-			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, true, time.Duration(24*time.Hour))
+			r.Attachments[i].FileUrl, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, attachment.FileUrl, false, time.Duration(24*time.Hour))
 			if err != nil {
 				return threads, meta, err
 			}
