@@ -170,6 +170,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 		threadPartnerTypePayload)
 	return
 }
+
 func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadReq) (err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
@@ -353,6 +354,7 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 
 	return
 }
+
 func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadReq) (rowsAffected int64, err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
@@ -365,6 +367,7 @@ func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadR
 	rowsAffected, err = u.threadRepo.Delete(ctx, threadPayload)
 	return
 }
+
 func (u *threadUsecase) GetList(c context.Context, request *request.GetListThreadReq) (threads []response.GetListThreadRes, meta response.MetaRes, err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
@@ -399,6 +402,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsOwner:        tempThread.IsOwner,
 		IsFollowing:    tempThread.IsFollowing,
+		IsApplied:      tempThread.IsApplied,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -432,6 +436,7 @@ func (u *threadUsecase) mapTempToResGetList(tempThread response.GetListThreadTem
 
 	return
 }
+
 func (u *threadUsecase) GetDetail(c context.Context, request *request.GetDetailThreadReq) (response response.GetDetailThreadRes, err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
@@ -467,6 +472,7 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 		IsUpvoted:      tempThread.IsUpvoted,
 		IsOwner:        tempThread.IsOwner,
 		IsFollowing:    tempThread.IsFollowing,
+		IsApplied:      tempThread.IsApplied,
 		IsActive:       tempThread.Thread.IsActive,
 		CreatedAt:      tempThread.Thread.CreatedAt,
 		UpdatedAt:      tempThread.Thread.UpdatedAt,
@@ -507,6 +513,7 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 
 	return
 }
+
 func (u *threadUsecase) ReportThread(c context.Context, request *request.ReportThreadReq) (err error) {
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()

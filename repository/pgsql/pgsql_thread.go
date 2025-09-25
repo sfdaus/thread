@@ -409,7 +409,16 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			AND tf.user_id = '%s'
 		)
 	  ) AS is_following,
-	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
+	
+	EXISTS (
+		 SELECT 1
+		 FROM thread_collaborators tc
+		 WHERE tc.thread_id = t.id
+		   AND tc.user_id   = '%s'
+		   AND COALESCE(tc.is_active, true)
+		   AND tc.deleted_at IS NULL
+	  ) AS is_applied,
+	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
@@ -598,6 +607,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		IsUpvoted    bool
 		IsOwner      bool
 		IsFollowing  bool
+		IsApplied    bool
 		CommentCount int64
 
 		ProfName      string
@@ -629,7 +639,8 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.IsApplied,
+			&rrow.CommentCount,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -665,6 +676,7 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 		out.IsReported = rrow.IsReported
 		out.IsOwner = rrow.IsOwner
 		out.IsFollowing = rrow.IsFollowing
+		out.IsApplied = rrow.IsApplied
 		out.Profile = entity.Profile{
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
@@ -729,6 +741,15 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 			AND tf.user_id = '%s'
 		)
 	) AS is_following,
+	    
+	EXISTS (
+		 SELECT 1
+		 FROM thread_collaborators tc
+		 WHERE tc.thread_id = t.id
+		   AND tc.user_id   = '%s'
+		   AND COALESCE(tc.is_active, true)
+		   AND tc.deleted_at IS NULL
+    ) AS is_applied,
 
 	-- profile (1-1)
 	COALESCE(p.name,'')        AS prof_name,
@@ -841,7 +862,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 
 	WHERE t.id = $1
 	LIMIT 1
-	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
+	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
 	// struct holder untuk scan
 	type rowStruct struct {
@@ -850,6 +871,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		IsUpvoted   bool
 		IsOwner     bool
 		IsFollowing bool
+		IsApplied   bool
 
 		ProfName      string
 		ProfNameAlias string
@@ -880,7 +902,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 		&row.ID, &row.UserID, &row.Title, pq.Array(&row.Type), &row.Description, &row.Status,
 		&row.UpvoteNumber, &row.ReportNumber, &row.FollowedNumber, &deadlineNT, &row.Slug,
 		&row.IsActive, &row.CreatedBy, &row.CreatedAt, &updatedByNS, &updatedAtNT, &deletedAtNT,
-		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing,
+		&row.IsUpvoted, &row.IsReported, &row.IsOwner, &row.IsFollowing, &row.IsApplied,
 		&row.ProfName, &row.ProfNameAlias, &row.ProfAvatar, &row.ProfPublicID,
 		&row.ProfInstName, &row.ProfInstAlias, &row.ProfInstType,
 		&row.AttachmentsJSON, &row.TagsJSON, &row.PartnerTypesJSON, &row.InstitutionsJSON,
@@ -912,6 +934,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	res.IsReported = row.IsReported
 	res.IsOwner = row.IsOwner
 	res.IsFollowing = row.IsFollowing
+	res.IsApplied = row.IsApplied
 	res.Profile = entity.Profile{
 		Name:      row.ProfName,
 		NameAlias: row.ProfNameAlias,
