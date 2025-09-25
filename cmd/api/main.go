@@ -68,11 +68,12 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.CORS())
 	e.Use(appMiddleware.Logger(nil))
+	e.Logger.Info("🚀 Server is alive and running")
 
 	// Setup handler
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "i am alive")
+		return c.NoContent(http.StatusOK)
 	})
 
 	httpDelivery.NewThreadHandler(e, appMiddleware, threadUC)
