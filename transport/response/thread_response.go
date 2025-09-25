@@ -25,7 +25,8 @@ type GetListThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	IsOwner        bool                       `json:"is_owner"`
 	IsFollowing    bool                       `json:"is_following"`
-	IsApplied      bool                       `json:"is_applied"`
+	IsApplying     bool                       `json:"is_applying"`
+	ApprovalStatus string                     `json:"approval_status"`
 	CommentCount   int64                      `json:"comment_count"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
@@ -37,18 +38,19 @@ type GetListThreadRes struct {
 }
 
 type GetListThreadTempRes struct {
-	Thread       entity.Thread              `json:"thread"`
-	IsReported   bool                       `json:"is_reported"`
-	IsUpvoted    bool                       `json:"is_upvoted"`
-	IsOwner      bool                       `json:"is_owner"`
-	IsFollowing  bool                       `json:"is_following"`
-	IsApplied    bool                       `json:"is_applied"`
-	Attachments  []entity.SecureAttachment  `json:"attachments"`
-	Tags         []entity.SecureTag         `json:"tags"`
-	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
-	Institutions []entity.SecureInstitution `json:"institutions"`
-	Profile      entity.Profile             `json:"profile"`
-	CommentCount int64                      `json:"comment_count"`
+	Thread         entity.Thread              `json:"thread"`
+	IsReported     bool                       `json:"is_reported"`
+	IsUpvoted      bool                       `json:"is_upvoted"`
+	IsOwner        bool                       `json:"is_owner"`
+	IsFollowing    bool                       `json:"is_following"`
+	IsApplying     bool                       `json:"is_applying"`
+	ApprovalStatus string                     `json:"approval_status"`
+	Attachments    []entity.SecureAttachment  `json:"attachments"`
+	Tags           []entity.SecureTag         `json:"tags"`
+	PartnerTypes   []entity.SecurePartnerType `json:"partner_types"`
+	Institutions   []entity.SecureInstitution `json:"institutions"`
+	Profile        entity.Profile             `json:"profile"`
+	CommentCount   int64                      `json:"comment_count"`
 }
 
 type GetDetailThreadRes struct {
@@ -67,7 +69,8 @@ type GetDetailThreadRes struct {
 	IsActive       bool                       `json:"is_active"`
 	IsOwner        bool                       `json:"is_owner"`
 	IsFollowing    bool                       `json:"is_following"`
-	IsApplied      bool                       `json:"is_applied"`
+	IsApplying     bool                       `json:"is_applying"`
+	ApprovalStatus string                     `json:"approval_status"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
 	Profile        entity.Profile             `json:"profile"`
@@ -78,17 +81,18 @@ type GetDetailThreadRes struct {
 }
 
 type GetDetailThreadTempRes struct {
-	Thread       entity.Thread              `json:"thread"`
-	IsReported   bool                       `json:"is_reported"`
-	IsUpvoted    bool                       `json:"is_upvoted"`
-	IsOwner      bool                       `json:"is_owner"`
-	IsFollowing  bool                       `json:"is_following"`
-	IsApplied    bool                       `json:"is_applied"`
-	Attachments  []entity.SecureAttachment  `json:"attachments"`
-	Tags         []entity.SecureTag         `json:"tags"`
-	PartnerTypes []entity.SecurePartnerType `json:"partner_types"`
-	Institutions []entity.SecureInstitution `json:"institutions"`
-	Profile      entity.Profile             `json:"profile"`
+	Thread         entity.Thread              `json:"thread"`
+	IsReported     bool                       `json:"is_reported"`
+	IsUpvoted      bool                       `json:"is_upvoted"`
+	IsOwner        bool                       `json:"is_owner"`
+	IsFollowing    bool                       `json:"is_following"`
+	IsApplying     bool                       `json:"is_applying"`
+	ApprovalStatus string                     `json:"approval_status"`
+	Attachments    []entity.SecureAttachment  `json:"attachments"`
+	Tags           []entity.SecureTag         `json:"tags"`
+	PartnerTypes   []entity.SecurePartnerType `json:"partner_types"`
+	Institutions   []entity.SecureInstitution `json:"institutions"`
+	Profile        entity.Profile             `json:"profile"`
 }
 
 type ShareThreadRes struct {
