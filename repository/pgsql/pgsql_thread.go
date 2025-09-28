@@ -820,24 +820,33 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 				'created_at', tpt.created_at,
 				'updated_at', tpt.updated_at,
 				'partner_type_id', tpt.partner_type_id,
-				'partner_profile',
-						CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
-						SELECT jsonb_build_object(
-							'name', COALESCE(prof.name,''),
+				'partner_profiles',
+				COALESCE((
+				SELECT jsonb_agg(
+						jsonb_build_object(
+							'user_id', tc.user_id,
+							'name',       COALESCE(prof.name,''),
 							'name_alias', COALESCE(prof.name_alias,''),
-							'avatar', COALESCE(prof.avatar,'')
+							'avatar',     COALESCE(prof.avatar,''),
+							'joined_at',  tc.joined_at
 						)
-						FROM thread_collaborators tc
-						JOIN profiles prof ON prof.user_id = tc.user_id
-						WHERE tc.thread_partner_type_id = tpt.id
-						AND tc.is_active = TRUE
-						AND tc.status = 'ACTIVE'
-						AND tc.deleted_at IS NULL
 						ORDER BY tc.joined_at ASC
-						LIMIT 1
-					) ELSE NULL END
-				) ORDER BY pt.name
-			) AS partner_types
+						)
+				FROM (
+					SELECT tc.*
+					FROM thread_collaborators tc
+					WHERE tc.thread_partner_type_id = tpt.id
+					AND COALESCE(tc.is_active, true)
+					AND tc.status = 'ACTIVE'
+					AND tc.deleted_at IS NULL
+					ORDER BY tc.joined_at ASC
+					LIMIT GREATEST(COALESCE(tpt.amount_fulfilled,0),0)
+				) tc
+				JOIN profiles prof ON prof.user_id = tc.user_id
+				), '[]'::jsonb) 
+				)
+				ORDER BY pt.name
+         ) AS partner_types
 		FROM thread_partner_types tpt
 		JOIN partner_types pt ON pt.id = tpt.partner_type_id
 		LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type
@@ -875,7 +884,7 @@ func (r *pgsqlThreadRepository) GetDetail(ctx context.Context, request *request.
 	WHERE t.id = $1
 	LIMIT 1
 	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
-	
+
 	// struct holder untuk scan
 	type rowStruct struct {
 		entity.Thread
@@ -1524,25 +1533,34 @@ func (r *pgsqlThreadRepository) GetDetailShared(ctx context.Context, request *re
 						'is_active', tpt.is_active,
 						'created_at', tpt.created_at,
 						'updated_at', tpt.updated_at,
-					 	'partner_type_id', tpt.partner_type_id,
-						'partner_profile',
-							CASE WHEN COALESCE(tpt.amount_fulfilled,0) > 0 THEN (
-							SELECT jsonb_build_object(
-								'name', COALESCE(prof.name,''),
-								'name_alias', COALESCE(prof.name_alias,''),
-								'avatar', COALESCE(prof.avatar,'')
-							)
+						'partner_type_id', tpt.partner_type_id,
+						'partner_profiles',
+						COALESCE((
+						SELECT jsonb_agg(
+								jsonb_build_object(
+									'user_id', tc.user_id,
+									'name',       COALESCE(prof.name,''),
+									'name_alias', COALESCE(prof.name_alias,''),
+									'avatar',     COALESCE(prof.avatar,''),
+									'joined_at',  tc.joined_at
+								)
+								ORDER BY tc.joined_at ASC
+								)
+						FROM (
+							SELECT tc.*
 							FROM thread_collaborators tc
-							JOIN profiles prof ON prof.user_id = tc.user_id
 							WHERE tc.thread_partner_type_id = tpt.id
-							AND tc.is_active = TRUE
+							AND COALESCE(tc.is_active, true)
 							AND tc.status = 'ACTIVE'
 							AND tc.deleted_at IS NULL
 							ORDER BY tc.joined_at ASC
-							LIMIT 1
-						) ELSE NULL END
-						) ORDER BY pt.name
-					) AS partner_types
+							LIMIT GREATEST(COALESCE(tpt.amount_fulfilled,0),0)
+						) tc
+						JOIN profiles prof ON prof.user_id = tc.user_id
+						), '[]'::jsonb) 
+						)
+						ORDER BY pt.name
+				) AS partner_types
 				FROM thread_partner_types tpt
 				JOIN partner_types pt ON pt.id = tpt.partner_type_id
 				LEFT JOIN compensation_types ct ON ct.id = tpt.compensation_type

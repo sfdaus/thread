@@ -504,10 +504,12 @@ func (u *threadUsecase) mapTempToResDetail(tempThread response.GetDetailThreadTe
 
 	// Partners Attachments - get presigned url
 	for _, partner := range tempThread.PartnerTypes {
-		if partner.PartnerProfile != nil {
-			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, false, time.Duration(24*time.Hour))
-			if err != nil {
-				return res, err
+		if partner.PartnerProfiles != nil {
+			for i, profile := range partner.PartnerProfiles {
+				partner.PartnerProfiles[i].Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, profile.Avatar, false, time.Duration(24*time.Hour))
+				if err != nil {
+					return res, err
+				}
 			}
 		}
 		res.PartnerTypes = append(res.PartnerTypes, partner)
@@ -731,10 +733,12 @@ func (u *threadUsecase) mapTempToResDetailShared(tempThread response.GetDetailSh
 
 	// Partners Attachments - get presigned url
 	for _, partner := range tempThread.PartnerTypes {
-		if partner.PartnerProfile != nil {
-			partner.PartnerProfile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, partner.PartnerProfile.Avatar, false, time.Duration(24*time.Hour))
-			if err != nil {
-				return res, err
+		if partner.PartnerProfiles != nil {
+			for i, profile := range partner.PartnerProfiles {
+				partner.PartnerProfiles[i].Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, profile.Avatar, false, time.Duration(24*time.Hour))
+				if err != nil {
+					return res, err
+				}
 			}
 		}
 		res.PartnerTypes = append(res.PartnerTypes, partner)
