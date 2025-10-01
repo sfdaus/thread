@@ -1782,7 +1782,7 @@ func (r *pgsqlThreadRepository) ThreadStats(ctx context.Context, request *reques
 				WHERE t.user_id = $1
 				  AND t.is_active = TRUE
 				  AND t.status = $2
-				  AND t.deadline > NOW()`
+				  AND (t.deadline > NOW() OR t.deadline is NULL)`
 
 	sc = tx.QueryRowContext(ctx, query, request.UserID, utils.ThreadStatus["submitted"])
 	if err = sc.Scan(&partnersNeededOpen); err != nil {
