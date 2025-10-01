@@ -3021,7 +3021,7 @@ func (r *pgsqlThreadRepository) ThreadStatsByID(ctx context.Context, request *re
 		WHERE u.public_id = $1
 		  AND t.is_active = TRUE
 		  AND t.status = $2
-		  AND t.deadline > NOW();
+		  AND (t.deadline > NOW() OR t.deadline is NULL);
 	`
 	if err = tx.QueryRowContext(ctx, q2, request.PublicID, utils.ThreadStatus["submitted"]).Scan(&partnersNeededOpen); err != nil {
 		return res, err
