@@ -120,7 +120,7 @@ func (r *s3Repository) GetDownloadURL(
 	ctx context.Context,
 	bucket string,
 	filename string, // object key lengkap, boleh mengandung path
-	isPublic bool, // tidak dipakai untuk presign, tapi tetap disiapkan sebagai fallback
+	isPublic bool,   // tidak dipakai untuk presign, tapi tetap disiapkan sebagai fallback
 	expiry time.Duration,
 ) (string, error) {
 	if filename == "" {
@@ -152,4 +152,23 @@ func (r *s3Repository) GetDownloadURL(
 	}
 
 	return "", fmt.Errorf("s3: presign for download: %w", err)
+}
+
+func (r *s3Repository) DeleteBulk(
+	ctx context.Context,
+	bucket string,
+	filenames []string,
+) error {
+	for _, name := range filenames {
+		key := strings.TrimLeft(name, "/")
+		if key == "" {
+			continue
+		}
+		err := r.client.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+		if err != nil {
+			continue
+		}
+	}
+	
+	return nil
 }

@@ -14,6 +14,7 @@ type S3Repository interface {
 	UploadFile(ctx context.Context, fh *multipart.FileHeader, fileName string, filePath string, bucket string) (string, error)
 	GetPresignedURL(ctx context.Context, bucket string, filename string, isPublic bool, expiry time.Duration) (string, error)
 	GetDownloadURL(ctx context.Context, bucket, filename string, isPublic bool, expiry time.Duration) (string, error)
+	DeleteBulk(ctx context.Context, bucket string, filenames []string) (err error)
 }
 
 type s3Repository struct {

@@ -120,7 +120,7 @@ func (h *ThreadHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "Failed to retrieve attachments")
 	}
 
-	req.AddedAttachments = form.File["added_attachments"]
+	req.AddedAttachments = form.File["added_attachments[]"]
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
@@ -570,7 +570,7 @@ func (h *ThreadHandler) ThreadStatsByID(c echo.Context) error {
 	}
 
 	req.UserID = c.Request().Header.Get("x-user-id")
-	
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))

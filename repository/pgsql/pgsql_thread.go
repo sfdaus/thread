@@ -116,12 +116,12 @@ func (r *pgsqlThreadRepository) Create(ctx context.Context, thread *entity.Threa
 }
 func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, removedAttachments []string,
 	addedTags []*entity.ThreadTag, removedTags []string, addedInstitutions []*entity.ThreadInstitution, removedInstitutions []string,
-	partnerTypes []*entity.UpdateThreadPartnerType, excludeRemovePartnerTypes []string) (err error) {
+	partnerTypes []*entity.UpdateThreadPartnerType, excludeRemovePartnerTypes []string) (removedAttachmentsURL []response.DeletedAttachment, err error) {
 
 	// Mulai transaction
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return removedAttachmentsURL, err
 	}
 
 	// Pastikan rollback kalau ada error
@@ -135,13 +135,13 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 	var ownerID string
 	err = tx.QueryRowContext(ctx, `SELECT user_id FROM threads WHERE id = $1 FOR UPDATE`, thread.ID).Scan(&ownerID)
 	if err == sql.ErrNoRows {
-		return utils.NewNotFoundError("Thread not found")
+		return removedAttachmentsURL, utils.NewNotFoundError("Thread not found")
 	}
 	if err != nil {
-		return err
+		return removedAttachmentsURL, err
 	}
 	if ownerID != thread.UserID {
-		return utils.NewUnauthorizedError("Unauthorize")
+		return removedAttachmentsURL, utils.NewUnauthorizedError("Unauthorize")
 	}
 
 	// Build dynamic SET clauses from Thread struct
@@ -213,14 +213,26 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 	}
 
 	if len(removedAttachments) > 0 {
-		_, err = tx.ExecContext(ctx,
-			`DELETE FROM thread_attachments
-               WHERE thread_id = $1
-                 AND id = ANY($2)`,
-			thread.ID, pq.Array(removedAttachments),
-		)
+		rows, err := tx.QueryContext(ctx, `
+						DELETE FROM thread_attachments
+						WHERE thread_id = $1
+						  AND id = ANY($2)
+						RETURNING id, file_url
+					`, thread.ID, pq.Array(removedAttachments))
 		if err != nil {
-			return
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var d response.DeletedAttachment
+			if err := rows.Scan(&d.ID, &d.FileURL); err != nil {
+				return nil, err
+			}
+			removedAttachmentsURL = append(removedAttachmentsURL, d)
+		}
+		if err := rows.Err(); err != nil {
+			return removedAttachmentsURL, err
 		}
 	}
 
@@ -230,7 +242,7 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 			if _, err = tx.ExecContext(ctx, query, attachment.ID, attachment.ThreadID, attachment.FileUrl, attachment.FileType, attachment.FileName,
 				attachment.IsActive, attachment.CreatedBy, attachment.CreatedAt, attachment.UpdatedAt, attachment.UpdatedBy); err != nil {
-				return err
+				return removedAttachmentsURL, err
 			}
 		}
 	}
@@ -256,7 +268,7 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 			if _, err = tx.ExecContext(ctx, query, tag.ID, tag.ThreadID, tag.TagID, tag.IsActive, tag.CreatedBy,
 				tag.CreatedAt, tag.UpdatedAt, tag.UpdatedBy); err != nil {
-				return err
+				return removedAttachmentsURL, err
 			}
 		}
 	}
@@ -282,7 +294,7 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 			if _, err = tx.ExecContext(ctx, query, institution.ID, institution.ThreadID, institution.InstitutionID, institution.IsActive, institution.CreatedBy,
 				institution.CreatedAt, institution.UpdatedAt, institution.UpdatedBy); err != nil {
-				return err
+				return removedAttachmentsURL, err
 			}
 		}
 	}
@@ -304,7 +316,7 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 		if _, err := tx.ExecContext(ctx, query,
 			vals...,
 		); err != nil {
-			return err
+			return removedAttachmentsURL, err
 		}
 	}
 
@@ -336,31 +348,69 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 				partnerType.CompensationNote, partnerType.AmountNeeded, partnerType.CreatedAt, partnerType.CreatedBy,
 				partnerType.UpdatedAt, partnerType.UpdatedBy, partnerType.ID,
 			); err != nil {
-				return err
+				return removedAttachmentsURL, err
 			}
 		}
 	}
 
 	// Commit jika semua sukses
 	if err = tx.Commit(); err != nil {
-		return err
+		return removedAttachmentsURL, err
 	}
 
 	return
 }
 
-func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *entity.Thread) (rowsAffected int64, err error) {
+func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *entity.Thread) (rowsAffected int64, deletedAttachments []string, err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// 1) **Authorization check**: pastikan yang update adalah pemilik thread
 	var ownerID string
 	err = r.db.QueryRowContext(ctx, `SELECT user_id FROM threads WHERE id = $1 FOR UPDATE`, thread.ID).Scan(&ownerID)
 	if err == sql.ErrNoRows {
-		return 0, utils.NewNotFoundError("Thread not found")
+		return 0, deletedAttachments, utils.NewNotFoundError("Thread not found")
 	}
 	if err != nil {
 		return
 	}
 	if ownerID != thread.UserID {
-		return 0, utils.NewUnauthorizedError("Unauthorize")
+		return 0, deletedAttachments, utils.NewUnauthorizedError("Unauthorize")
+	}
+
+	// 2) Ambil semua attachment
+	attRows, err := tx.QueryContext(ctx,
+		`SELECT file_url
+		   FROM thread_attachments
+		  WHERE thread_id = $1`,
+		thread.ID,
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+	for attRows.Next() {
+		var fileURL string
+		if scanErr := attRows.Scan(&fileURL); scanErr != nil {
+			_ = attRows.Close()
+			return 0, nil, scanErr
+		}
+		deletedAttachments = append(deletedAttachments, fileURL)
+	}
+	if err = attRows.Close(); err != nil {
+		return 0, nil, err
+	}
+	if err = attRows.Err(); err != nil {
+		return 0, nil, err
 	}
 
 	query := "DELETE FROM threads WHERE id = $1"
@@ -371,6 +421,11 @@ func (r *pgsqlThreadRepository) Delete(ctx context.Context, thread *entity.Threa
 
 	rowsAffected, err = res.RowsAffected()
 	if err != nil {
+		return
+	}
+
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
 		return
 	}
 

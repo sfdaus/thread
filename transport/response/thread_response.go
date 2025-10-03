@@ -292,3 +292,8 @@ type ThreadStatsByIDRes struct {
 	PartnersNeededOpen int64 `json:"partners_needed_open"`
 	ActiveProjects     int64 `json:"active_projects"`
 }
+
+type DeletedAttachment struct {
+	ID      string
+	FileURL string
+}
