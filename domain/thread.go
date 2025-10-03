@@ -13,8 +13,8 @@ type ThreadRepository interface {
 		institutions []*entity.ThreadInstitution, partnerTypes []*entity.ThreadPartnerType) error
 	Update(ctx context.Context, thread *entity.Thread, attachments []*entity.Attachment, removedAttachments []string,
 		addedTags []*entity.ThreadTag, removedTags []string, addedInstitutions []*entity.ThreadInstitution, removedInstitutions []string,
-		partnerTypes []*entity.UpdateThreadPartnerType, excludeRemovePartnerTypes []string) error
-	Delete(ctx context.Context, thread *entity.Thread) (int64, error)
+		partnerTypes []*entity.UpdateThreadPartnerType, excludeRemovePartnerTypes []string) ([]response.DeletedAttachment, error)
+	Delete(ctx context.Context, thread *entity.Thread) (int64, []string, error)
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadTempRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadTempRes, error)
 	ReportThread(ctx context.Context, contentReport *entity.ContentReport) error

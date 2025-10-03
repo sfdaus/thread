@@ -95,7 +95,7 @@ func (u *threadUsecase) Create(c context.Context, request *request.CreateThreadR
 			attachmentPayload := &entity.Attachment{
 				ID:        uuid.NewString(),
 				ThreadID:  threadUUID,
-				FileName:  utils.ThreadFileName,
+				FileName:  attachment.Filename,
 				FileType:  mimeFromHeader,
 				FileUrl:   fileURL,
 				IsActive:  true,
@@ -211,6 +211,7 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 		Attachments Update
 	*/
 	var addedThreadAttachmentsPayload []*entity.Attachment
+
 	if len(request.AddedAttachments) > 0 {
 		for _, attachment := range request.AddedAttachments {
 			mimeFromHeader := attachment.Header.Get("Content-Type")
@@ -228,7 +229,7 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 			attachmentPayload := &entity.Attachment{
 				ID:        uuid.NewString(),
 				ThreadID:  request.ID,
-				FileName:  utils.ThreadFileName,
+				FileName:  attachment.Filename,
 				FileType:  mimeFromHeader,
 				FileUrl:   fileURL,
 				IsActive:  true,
@@ -349,8 +350,20 @@ func (u *threadUsecase) Update(c context.Context, request *request.UpdateThreadR
 		}
 	}
 
-	err = u.threadRepo.Update(ctx, threadPayload, addedThreadAttachmentsPayload, request.RemoveAttachmentIDs, addedThreadTagsPayload,
+	deletedAttachmentsURL, err := u.threadRepo.Update(ctx, threadPayload, addedThreadAttachmentsPayload, request.RemoveAttachmentIDs, addedThreadTagsPayload,
 		request.RemoveTags, addedThreadInstitutionsPayload, request.RemoveInstitutions, addedThreadPartnerTypesPayload, excludeRemovePartnerTypes)
+	if err != nil {
+		return
+	}
+
+	// remove file from filestorage
+	if len(deletedAttachmentsURL) > 0 {
+		var tempDeleteFile []string
+		for _, attachment := range deletedAttachmentsURL {
+			tempDeleteFile = append(tempDeleteFile, attachment.FileURL)
+		}
+		_ = u.s3Repo.DeleteBulk(c, config.LoadConfig().S3Bucket, tempDeleteFile)
+	}
 
 	return
 }
@@ -364,7 +377,13 @@ func (u *threadUsecase) Delete(c context.Context, request *request.DeleteThreadR
 		UserID: request.UserID,
 	}
 
-	rowsAffected, err = u.threadRepo.Delete(ctx, threadPayload)
+	rowsAffected, deletedAttachmentsURL, err := u.threadRepo.Delete(ctx, threadPayload)
+
+	// remove file from filestorage
+	if len(deletedAttachmentsURL) > 0 {
+		_ = u.s3Repo.DeleteBulk(c, config.LoadConfig().S3Bucket, deletedAttachmentsURL)
+	}
+
 	return
 }
 
