@@ -469,6 +469,29 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	COALESCE(japp.status, 'NOT_APPLYING') AS approval_status,
 	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
+	if s := strings.TrimSpace(request.Search); s != "" {
+		wheres = append(
+			wheres,
+			fmt.Sprintf("(t.title ILIKE $%[1]d OR p.name ILIKE $%[1]d OR i.name ILIKE $%[1]d)", idx),
+		)
+		args = append(args, "%"+s+"%")
+		idx++
+	}
+
+	if len(request.Tags) > 0 {
+		wheres = append(wheres, fmt.Sprintf(`
+        EXISTS (
+          SELECT 1
+          FROM thread_tags tt
+          WHERE tt.thread_id = t.id
+            AND tt.is_active = true
+            AND tt.tag_id = ANY($%d)
+        )
+    `, idx))
+		args = append(args, pq.Array(request.Tags))
+		idx++
+	}
+
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
 		args = append(args, "%"+request.Title+"%")
@@ -504,7 +527,10 @@ func (r *pgsqlThreadRepository) GetList(ctx context.Context, request *request.Ge
 	// --- 2. Hitung totalCount dulu (tanpa LIMIT/OFFSET) ---
 	countQuery := fmt.Sprintf(
 		`SELECT COUNT(*) 
-				FROM threads as t %s`,
+				FROM threads as t 
+				LEFT JOIN profiles p     ON p.user_id = t.user_id
+				LEFT JOIN institutions i ON i.id = p.institution_id
+				%s`,
 		whereSQL,
 	)
 	if err = r.db.QueryRowContext(ctx, countQuery, args...).Scan(&meta.TotalData); err != nil {
@@ -1181,6 +1207,29 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	) AS is_following,
 	`, request.UserID, request.UserID, request.UserID, request.UserID, request.UserID)
 
+	if s := strings.TrimSpace(request.Search); s != "" {
+		wheres = append(
+			wheres,
+			fmt.Sprintf("(t.title ILIKE $%[1]d OR p.name ILIKE $%[1]d OR i.name ILIKE $%[1]d)", idx),
+		)
+		args = append(args, "%"+s+"%")
+		idx++
+	}
+
+	if len(request.Tags) > 0 {
+		wheres = append(wheres, fmt.Sprintf(`
+        EXISTS (
+          SELECT 1
+          FROM thread_tags tt
+          WHERE tt.thread_id = t.id
+            AND tt.is_active = true
+            AND tt.tag_id = ANY($%d)
+        )
+    `, idx))
+		args = append(args, pq.Array(request.Tags))
+		idx++
+	}
+
 	if request.Title != "" {
 		wheres = append(wheres, fmt.Sprintf("t.title ILIKE $%d", idx))
 		args = append(args, "%"+request.Title+"%")
@@ -1199,6 +1248,14 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		idx++
 	}
 
+	switch strings.ToLower(strings.TrimSpace(request.Time)) {
+	case "expired":
+		wheres = append(wheres, "t.deadline IS NOT NULL AND t.deadline <= NOW()")
+	case "active":
+		wheres = append(wheres, "(t.deadline IS NULL OR t.deadline > NOW())")
+	default:
+	}
+
 	whereSQL := ""
 	if len(wheres) > 0 {
 		whereSQL = "WHERE " + strings.Join(wheres, " AND ")
@@ -1207,7 +1264,10 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 	// --- 2. Hitung totalCount dulu (tanpa LIMIT/OFFSET) ---
 	countQuery := fmt.Sprintf(
 		`SELECT COUNT(*) 
-				FROM threads as t %s`,
+				FROM threads as t 
+				LEFT JOIN profiles p     ON p.user_id = t.user_id
+				LEFT JOIN institutions i ON i.id = p.institution_id
+				%s`,
 		whereSQL,
 	)
 	if err = r.db.QueryRowContext(ctx, countQuery, args...).Scan(&meta.TotalData); err != nil {
