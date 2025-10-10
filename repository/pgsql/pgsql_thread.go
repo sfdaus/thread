@@ -1248,6 +1248,14 @@ func (r *pgsqlThreadRepository) GetMyThread(ctx context.Context, request *reques
 		idx++
 	}
 
+	switch strings.ToLower(strings.TrimSpace(request.Time)) {
+	case "expired":
+		wheres = append(wheres, "t.deadline IS NOT NULL AND t.deadline <= NOW()")
+	case "active":
+		wheres = append(wheres, "(t.deadline IS NULL OR t.deadline > NOW())")
+	default:
+	}
+
 	whereSQL := ""
 	if len(wheres) > 0 {
 		whereSQL = "WHERE " + strings.Join(wheres, " AND ")

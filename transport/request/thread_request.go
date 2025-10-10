@@ -198,6 +198,7 @@ type GetMyThreadReq struct {
 	Search   string   `query:"search"`
 	Tags     []string `query:"tags[]"`
 	Title    string   `query:"title"`
+	Time     string   `query:"time"`
 	Status   string   `query:"status"`
 	IsActive *bool    `query:"is_active"`
 	PerPage  int64    `query:"per_page"`
@@ -208,6 +209,7 @@ func (request GetMyThreadReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.UserID, validation.Required),
+		validation.Field(&request.Time, validation.In("expired", "active").Error("time not valid")),
 	)
 }
 
