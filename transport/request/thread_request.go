@@ -102,12 +102,14 @@ func (request DeleteThreadReq) Validate() error {
 // Get List request body
 type GetListThreadReq struct {
 	UserID   string
-	Title    string `query:"title"`
-	Status   string `query:"status"`
-	IsActive *bool  `query:"is_active"`
-	Time     string `query:"time"`
-	PerPage  int64  `query:"per_page"`
-	Page     int64  `query:"page"`
+	Search   string   `query:"search"`
+	Tags     []string `query:"tags[]"`
+	Title    string   `query:"title"`
+	Status   string   `query:"status"`
+	IsActive *bool    `query:"is_active"`
+	Time     string   `query:"time"`
+	PerPage  int64    `query:"per_page"`
+	Page     int64    `query:"page"`
 }
 
 func (request GetListThreadReq) Validate() error {
@@ -193,11 +195,13 @@ func (request ShareThreadReq) Validate() error {
 // Get My Thread request body
 type GetMyThreadReq struct {
 	UserID   string
-	Title    string `query:"title"`
-	Status   string `query:"status"`
-	IsActive *bool  `query:"is_active"`
-	PerPage  int64  `query:"per_page"`
-	Page     int64  `query:"page"`
+	Search   string   `query:"search"`
+	Tags     []string `query:"tags[]"`
+	Title    string   `query:"title"`
+	Status   string   `query:"status"`
+	IsActive *bool    `query:"is_active"`
+	PerPage  int64    `query:"per_page"`
+	Page     int64    `query:"page"`
 }
 
 func (request GetMyThreadReq) Validate() error {
