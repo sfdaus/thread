@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -562,6 +563,7 @@ func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteT
 	ctx, cancel := context.WithTimeout(c, u.ctxTimeout)
 	defer cancel()
 
+	// Payload content upvote
 	contentReportPayload := &entity.ContentUpvote{
 		ID:        uuid.NewString(),
 		UserID:    request.UserID,
@@ -573,7 +575,27 @@ func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteT
 		UpdatedAt: time.Now().Unix(),
 	}
 
-	err = u.threadRepo.UpvoteThread(ctx, contentReportPayload)
+	// Payload notification outbox
+	headers := map[string]string{"x-user-id": request.UserID}
+	headersJSON, _ := json.Marshal(headers)
+
+	notificationOutboxPayload := &entity.NotificationOutboxInsert{
+		ID:            uuid.NewString(),
+		Type:          utils.UPVOTE_THREAD_NOTIFICATION_TYPE,
+		ReferenceType: utils.UPVOTE_THREAD_NOTIFICATION_REFERENCE_TYPE,
+		ReferenceID:   request.ID,
+		HeadersJSON:   headersJSON,
+		Title:         utils.ThreadNotificationTitle["THREAD_UPVOTE_TITLE"],
+		Priority:      utils.ThreadNotificationPriority["UPVOTE_THREAD"],
+		IdempotencyKey: fmt.Sprintf(
+			"%s:%s:%s", utils.NotificationIdempotencyKey[utils.UPVOTE_THREAD_NOTIFICATION_TYPE],
+			contentReportPayload.ID, "[INIT_ID]",
+		),
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
+	}
+
+	err = u.threadRepo.UpvoteThread(ctx, contentReportPayload, notificationOutboxPayload)
 	return
 }
 

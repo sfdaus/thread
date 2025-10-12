@@ -18,7 +18,7 @@ type ThreadRepository interface {
 	GetList(ctx context.Context, request *request.GetListThreadReq) ([]response.GetListThreadTempRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailThreadReq) (response.GetDetailThreadTempRes, error)
 	ReportThread(ctx context.Context, contentReport *entity.ContentReport) error
-	UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote) error
+	UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote, notificationOutbox *entity.NotificationOutboxInsert) error
 	UnvoteThread(ctx context.Context, request *request.UnvoteThreadReq) error
 	ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (*entity.Thread, string, error)
 	GetMyThread(ctx context.Context, request *request.GetMyThreadReq) ([]response.GetMyThreadTempRes, response.MetaRes, error)
