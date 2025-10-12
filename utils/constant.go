@@ -12,6 +12,9 @@ const (
 
 	// Notification Reference Type
 	UPVOTE_THREAD_NOTIFICATION_REFERENCE_TYPE = "THREAD"
+
+	// Action URL Notification Constant
+	UPVOTE_THREAD_NOTIFICATION_ACTION_URL = "/thread/"
 )
 
 type ResponseStatus struct {
