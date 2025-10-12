@@ -277,6 +277,8 @@ type GetThreadByAuthorRes struct {
 	IsActive       bool                       `json:"is_active"`
 	IsOwner        bool                       `json:"is_owner"`
 	IsFollowing    bool                       `json:"is_following"`
+	IsApplying     bool                       `json:"is_applying"`
+	ApprovalStatus string                     `json:"approval_status"`
 	CommentCount   int64                      `json:"comment_count"`
 	CreatedAt      int64                      `json:"created_at"`
 	UpdatedAt      int64                      `json:"updated_at"`
