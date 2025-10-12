@@ -2936,12 +2936,8 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 	// ---------------------------
 	// 3) Tambahkan viewer public_id (untuk flags) SETELAH count
 	// ---------------------------
-	// Catatan: kalau ada field ViewerPublicID di request, pakai itu.
-	// Untuk sekarang, reuse author public_id supaya tetap jalan.
-	viewerPublicID := request.PublicID
-
 	viewerPubIDPos := idx
-	args = append(args, viewerPublicID) // $idx = viewer public_id
+	args = append(args, request.UserID) // $idx = viewer public_id
 	idx++
 
 	// Tambahkan LIMIT & OFFSET
@@ -2965,7 +2961,7 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 				SELECT 1
 				FROM content_likes clx
 				WHERE clx.thread_id = t.id
-				  AND clx.user_id = (SELECT id FROM users WHERE public_id = $%d)
+				  AND clx.user_id = $%d
 				  AND COALESCE(clx.is_active, true)
 			)) AS is_upvoted,
 
@@ -2973,20 +2969,22 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 				SELECT 1
 				FROM content_reports crx
 				WHERE crx.thread_id = t.id
-				  AND crx.reporter_id = (SELECT id FROM users WHERE public_id = $%d)
+				  AND crx.reporter_id = $%d
 				  AND COALESCE(crx.is_active, true)
 			)) AS is_reported,
 
-			false AS is_owner,
+			(t.user_id = $%d) AS is_owner,
 
-			( (t.user_id = (SELECT id FROM users WHERE public_id = $%d))
-			  OR EXISTS (
+			(SELECT EXISTS (
 					SELECT 1
 					FROM thread_follows tf
 					WHERE tf.thread_id = t.id
-					  AND tf.user_id = (SELECT id FROM users WHERE public_id = $%d)
+					  AND tf.user_id = $%d
 			  )
 			) AS is_following,
+		    
+		    (japp.status IS NOT NULL) AS is_applying,
+			COALESCE(japp.status, 'NOT_APPLYING') AS approval_status,
 
 			-- comment count
 			COALESCE(jc.comment_count, 0) AS comment_count,
@@ -3090,11 +3088,22 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 			JOIN institutions i2 ON i2.id = ti.institution_id
 			WHERE ti.thread_id = t.id AND ti.is_active = true
 		) ji ON true
+		
+		LEFT JOIN LATERAL (
+		  SELECT tpa.status::text AS status
+		  FROM thread_partner_applications tpa
+		  WHERE tpa.thread_id = t.id
+			AND tpa.applicant_user_id = $%d
+			AND COALESCE(tpa.is_active, true)
+			AND tpa.deleted_at IS NULL
+		  ORDER BY COALESCE(tpa.updated_at, tpa.created_at) DESC
+		  LIMIT 1
+		) japp ON true
 
 		%s
 		ORDER BY t.created_at DESC
 		LIMIT $%d OFFSET $%d
-	`, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, whereSQL, limitPos, offsetPos)
+	`, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, viewerPubIDPos, whereSQL, limitPos, offsetPos)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -3104,11 +3113,13 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 
 	type listRow struct {
 		entity.Thread
-		IsReported   bool
-		IsUpvoted    bool
-		IsOwner      bool
-		IsFollowing  bool
-		CommentCount int64
+		IsReported     bool
+		IsUpvoted      bool
+		IsOwner        bool
+		IsFollowing    bool
+		IsApplying     bool
+		ApprovalStatus string
+		CommentCount   int64
 
 		ProfName      string
 		ProfNameAlias string
@@ -3138,7 +3149,8 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 			&rrow.UpvoteNumber, &rrow.ReportNumber, &rrow.FollowedNumber, &deadlineNT, &rrow.Slug,
 			&rrow.IsActive, &rrow.CreatedBy, &rrow.CreatedAt, &updatedByNS, &rrow.UpdatedAt, &deletedAtNT,
 
-			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.CommentCount,
+			&rrow.IsUpvoted, &rrow.IsReported, &rrow.IsOwner, &rrow.IsFollowing, &rrow.IsApplying, &rrow.ApprovalStatus,
+			&rrow.CommentCount,
 
 			&rrow.ProfName, &rrow.ProfNameAlias, &rrow.ProfAvatar, &rrow.ProfPublicID,
 			&rrow.ProfInstName, &rrow.ProfInstAlias, &rrow.ProfInstType,
@@ -3185,6 +3197,8 @@ func (r *pgsqlThreadRepository) GetThreadByAuthor(ctx context.Context, request *
 		out.UpdatedAt = rrow.UpdatedAt
 		out.IsOwner = rrow.IsOwner
 		out.IsFollowing = rrow.IsFollowing
+		out.IsApplying = rrow.IsApplying
+		out.ApprovalStatus = rrow.ApprovalStatus
 		out.Profile = entity.Profile{
 			Name:      rrow.ProfName,
 			NameAlias: rrow.ProfNameAlias,
