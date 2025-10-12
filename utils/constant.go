@@ -41,7 +41,7 @@ var NotificationIdempotencyKey = map[string]string{
 }
 
 var ThreadNotificationTitle = map[string]string{
-	"THREAD_UPVOTE_TITLE": `menyukai postinganmu`,
+	"THREAD_UPVOTE_TITLE": `menyukai postinganmu yang berjudul "[TITLE]"`,
 }
 
 var ThreadNotificationMessage = map[string]string{}

@@ -1095,13 +1095,13 @@ func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote 
 	}()
 
 	// Get Thread Owner
-	const q = `SELECT user_id from threads WHERE id = $1`
+	const q = `SELECT user_id, title from threads WHERE id = $1`
 
-	var threadUserID sql.NullString
+	var threadUserID, threadTitle sql.NullString
 	err = tx.QueryRowContext(
 		ctx, q,
 		contentUpvote.ThreadID,
-	).Scan(&threadUserID)
+	).Scan(&threadUserID, &threadTitle)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1151,6 +1151,8 @@ func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote 
 			// Initiator thread Notification
 			notificationOutbox.UserID = threadUserID.String
 			notificationOutbox.IdempotencyKey = strings.Replace(notificationOutbox.IdempotencyKey, "[INIT_ID]", contentUpvote.UserID, 1)
+
+			notificationOutbox.Title = strings.Replace(notificationOutbox.Title, "[TITLE]", threadTitle.String, 1)
 
 			qInitNotifOutbox := `INSERT INTO notification_outbox
 								(id, user_id, type, reference_type, reference_id, headers_json,
