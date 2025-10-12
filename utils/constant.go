@@ -6,6 +6,12 @@ const (
 
 	ThreadFileName = "THREAD-ATTACHMENT"
 	ThreadFilePath = "threads/"
+
+	// Notification Type
+	UPVOTE_THREAD_NOTIFICATION_TYPE = "UPVOTE_THREAD"
+
+	// Notification Reference Type
+	UPVOTE_THREAD_NOTIFICATION_REFERENCE_TYPE = "THREAD"
 )
 
 type ResponseStatus struct {
@@ -25,3 +31,17 @@ var ThreadStatus = map[string]string{
 	"drafted":   "DRAFTED",
 	"rejected":  "REJECTED",
 }
+
+var ThreadNotificationPriority = map[string]string{
+	"UPVOTE_THREAD": "medium",
+}
+
+var NotificationIdempotencyKey = map[string]string{
+	"UPVOTE_THREAD": "notif:upvote",
+}
+
+var ThreadNotificationTitle = map[string]string{
+	"THREAD_UPVOTE_TITLE": `menyukai postinganmu`,
+}
+
+var ThreadNotificationMessage = map[string]string{}

@@ -11,6 +11,7 @@ import (
 	"prakarsa-app/transport/response"
 	"prakarsa-app/utils"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -1078,31 +1079,157 @@ func (r *pgsqlThreadRepository) ReportThread(ctx context.Context, contentReport 
 	return
 }
 
-func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote) (err error) {
-	query := `INSERT INTO content_likes (id, user_id, thread_id, is_active, created_by, 
-            	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	if _, err = r.db.ExecContext(ctx, query, contentUpvote.ID, contentUpvote.UserID, contentUpvote.ThreadID,
-		contentUpvote.IsActive, contentUpvote.CreatedBy, contentUpvote.CreatedAt, contentUpvote.UpdatedAt); err != nil {
-		if pgErr, ok := err.(*pq.Error); ok {
-			if pgErr.Constraint == "ux_likes_unique_thread" {
-				return utils.NewForbiddenError("Cannot upvote the same thread twice")
-			}
+func (r *pgsqlThreadRepository) UpvoteThread(ctx context.Context, contentUpvote *entity.ContentUpvote, notificationOutbox *entity.NotificationOutboxInsert) (err error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Get Thread Owner
+	const q = `SELECT user_id from threads WHERE id = $1`
+
+	var threadUserID sql.NullString
+	err = tx.QueryRowContext(
+		ctx, q,
+		contentUpvote.ThreadID,
+	).Scan(&threadUserID)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return utils.NewNotFoundError("Thread not found")
 		}
 		return err
 	}
 
-	return
+	const qUpsert = `
+		INSERT INTO content_likes (
+			id, user_id, thread_id, is_active, created_by, created_at, updated_by, updated_at
+		) VALUES ($1, $2, $3, TRUE, $4, $5, $6, $7)
+		ON CONFLICT (user_id, thread_id)
+		WHERE (thread_id IS NOT NULL AND comment_id IS NULL)
+		DO UPDATE SET
+			is_active  = TRUE,
+			updated_by = EXCLUDED.updated_by,
+			updated_at = EXCLUDED.updated_at
+		WHERE content_likes.is_active IS DISTINCT FROM TRUE
+		RETURNING (xmax = 0) AS is_inserted;
+	`
+
+	var isInserted bool
+	err = tx.QueryRowContext(
+		ctx, qUpsert,
+		contentUpvote.ID, contentUpvote.UserID, contentUpvote.ThreadID,
+		contentUpvote.CreatedBy, contentUpvote.CreatedAt, contentUpvote.UpdatedBy, contentUpvote.UpdatedAt,
+	).Scan(&isInserted)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			err = nil
+		} else {
+			return err
+		}
+	} else {
+		if !isInserted {
+			const qInc = `
+				UPDATE threads
+				SET upvote_number = upvote_number + 1
+				WHERE id = $1;
+			`
+			if _, err = tx.ExecContext(ctx, qInc, contentUpvote.ThreadID); err != nil {
+				return err
+			}
+		} else if isInserted && contentUpvote.UserID != threadUserID.String {
+			// Initiator thread Notification
+			notificationOutbox.UserID = threadUserID.String
+			notificationOutbox.IdempotencyKey = strings.Replace(notificationOutbox.IdempotencyKey, "[INIT_ID]", contentUpvote.UserID, 1)
+
+			qInitNotifOutbox := `INSERT INTO notification_outbox
+								(id, user_id, type, reference_type, reference_id, headers_json,
+								 title, message, action_url, priority, status, attempt_count,
+								 next_attempt_at, idempotency_key, created_at, updated_at)
+							VALUES
+								($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',0,NOW(),$11,$12,$13)
+						`
+
+			if _, err = tx.ExecContext(ctx, qInitNotifOutbox,
+				notificationOutbox.ID, notificationOutbox.UserID, notificationOutbox.Type, notificationOutbox.ReferenceType,
+				notificationOutbox.ReferenceID, notificationOutbox.HeadersJSON, notificationOutbox.Title, notificationOutbox.Message,
+				notificationOutbox.ActionURL, notificationOutbox.Priority, notificationOutbox.IdempotencyKey, notificationOutbox.CreatedAt,
+				notificationOutbox.UpdatedAt,
+			); err != nil {
+				return
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *pgsqlThreadRepository) UnvoteThread(ctx context.Context, request *request.UnvoteThreadReq) (err error) {
-	query := `DELETE FROM content_likes WHERE thread_id = $1 AND user_id = $2;`
-	if res, err := r.db.ExecContext(ctx, query, request.ID, request.UserID); err != nil {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
 		return err
-	} else if affected, _ := res.RowsAffected(); affected == 0 {
-		return utils.NewNotFoundError("Thread status is not upvoted")
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// 1) Matikan like kalau sedang aktif
+	const qUnvote = `
+		UPDATE content_likes
+		SET is_active = FALSE,
+		    updated_by = $3,
+		    updated_at = $4
+		WHERE thread_id = $1
+		  AND user_id  = $2
+		  AND is_active IS DISTINCT FROM FALSE
+		RETURNING 1;
+	`
+
+	var dummy int
+	err = tx.QueryRowContext(ctx, qUnvote, request.ID, request.UserID, request.UserID, time.Now().Unix()).Scan(&dummy)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Tidak ada baris aktif untuk dimatikan → anggap "belum di-upvote"
+			return utils.NewNotFoundError("Thread status is not upvoted")
+		}
+		return err
 	}
 
-	return
+	// 2) Karena ada transisi TRUE -> FALSE, decrement counter
+	// Gunakan GREATEST untuk cegah nilai negatif
+	const qDec = `
+		UPDATE threads
+		SET upvote_number = GREATEST(upvote_number - 1, 0)
+		WHERE id = $1;
+	`
+	if _, err = tx.ExecContext(ctx, qDec, request.ID); err != nil {
+		return err
+	}
+
+	// 3) Commit
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *pgsqlThreadRepository) ShareThread(ctx context.Context, request *request.ShareThreadReq, shareEvent *entity.ShareEvent) (thread *entity.Thread, shareRelShortID string, err error) {
