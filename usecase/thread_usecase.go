@@ -579,6 +579,8 @@ func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteT
 	headers := map[string]string{"x-user-id": request.UserID}
 	headersJSON, _ := json.Marshal(headers)
 
+	actionURL := config.LoadConfig().BaseURLPrakarsa + utils.UPVOTE_THREAD_NOTIFICATION_ACTION_URL + request.ID
+
 	notificationOutboxPayload := &entity.NotificationOutboxInsert{
 		ID:            uuid.NewString(),
 		Type:          utils.UPVOTE_THREAD_NOTIFICATION_TYPE,
@@ -591,6 +593,7 @@ func (u *threadUsecase) UpvoteThread(c context.Context, request *request.UpvoteT
 			"%s:%s:%s", utils.NotificationIdempotencyKey[utils.UPVOTE_THREAD_NOTIFICATION_TYPE],
 			contentReportPayload.ID, "[INIT_ID]",
 		),
+		ActionURL: &actionURL,
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	}
