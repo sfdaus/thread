@@ -255,7 +255,7 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 		_, err = tx.ExecContext(ctx,
 			`DELETE FROM thread_tags
                WHERE thread_id = $1
-                 AND id = ANY($2)`,
+                 AND tag_id = ANY($2) OR id = ANY($2)`,
 			thread.ID, pq.Array(removedTags),
 		)
 		if err != nil {
@@ -281,7 +281,7 @@ func (r *pgsqlThreadRepository) Update(ctx context.Context, thread *entity.Threa
 		_, err = tx.ExecContext(ctx,
 			`DELETE FROM thread_institutions
                WHERE thread_id = $1
-                 AND id = ANY($2)`,
+                 AND id = ANY($2) OR institution_id = ANY($2)`,
 			thread.ID, pq.Array(removedInstitutions),
 		)
 		if err != nil {
